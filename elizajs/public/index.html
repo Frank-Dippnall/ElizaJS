@@ -1,0 +1,93 @@
+<!doctype=html>
+    <html>
+
+    <head>
+
+
+        <link rel="stylesheet" href="css/eliza.css">
+        <link rel="stylesheet" href="css/chat.css">
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+        <script src="js/eliza/ElizaBot.js"></script>
+        <script src="js/eliza/old/ElizaBotOld.js"></script>
+        <script src="js/eliza/new/ElizaBotNew.js"></script>
+        <script src="js/runeliza.js"></script>
+        <title>ElizaJS</title>
+
+    </head>
+
+    <body>
+        <h1>Eliza JavaScript</h1>
+        <h2>By Frank Dippnall</h2>
+        <form id="user_form">
+            <table class="form_section">
+                <tr>
+                    <th>Username</th>
+                    <td><input type="text" id="username" required></td>
+                </tr>
+                <tr>
+                    <th>Password (optional)</th>
+                    <td><input type="text" id="password"></td>
+                </tr>
+                <tr>
+
+                    <th>Gender<span style="color:red">*</span></th>
+                    <td>
+                        <select id="gender">
+                            <option value="m">Male: "he", "him", "his" </option>
+                            <option value="f">Female: "she", "her", "hers" </option>
+                            <option value="">Unspecified: "they", "them", "their" </option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Slow Text (Eliza)</th>
+                    <td><input type="checkbox" id="eliza_slow" checked></td>
+                </tr>
+                <tr>
+                    <th>Slow Text (User)</th>
+                    <td><input type="checkbox" id="user_slow" checked></td>
+                </tr>
+
+            </table>
+            <p style="font-size:small">
+                <span style="color:red">*</span> This field is only used when defining a new user. existing usernames
+                will
+                use the already known gender.
+            </p>
+
+            <input type="submit" value="Start Chat Session">
+
+        </form>
+
+        <div id="content_loading"></div>
+        <div id="bot" class="bot_wrapper outer">
+            Type "!quit" to save & exit.
+            <div id="bot_inner" class="bot_wrapper inner">
+                <div id="bot_output" class="output"></div>
+            </div>
+            <input type="text" id="bot_input" class="input">
+        </div>
+
+        <div id="results_wrapper">
+            <h3>Thank You!</h3>
+            <p>Thanks for using ElizaJS! Your conversation has been logged and will be used for project evaluation.</p>
+            <p>If you want, you can complete this evaluation form to submit your feedback.</p>
+            <form id="evaluation_form">
+                <table class="form_section">
+                    <tr>
+                        <th>Score</th>
+                        <td><input type="number" max=100 min=0 id="score"></td>
+                    </tr>
+                </table>
+            </form>
+            <p>
+                You can refresh the page or <a href="/">click here</a> to go back to the sign-on screen. Have a nice
+                day!
+            </p>
+
+        </div>
+
+    </body>
+
+    </html>

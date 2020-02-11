@@ -1,0 +1,208 @@
+;
+; ELIZA SCRIPT FILE
+;
+; FORMAT:
+; S0 - define signon message for new user
+; S1 - define signon message for known user
+; TR
+; TR - DEFINE PAIR OF WORDS TO TRANSPOSE - deprecated.
+; NL - response for null entry
+; NN - response for non-noun message.
+; NF - response non-fact noun message.
+; OP  - operator
+; PC - pronoun class (usage: PC  [person] [plurality] [gender])
+; PR - pronoun
+; TB - define term boundary
+; KE - fallback keyword
+; RE - fallback response
+;
+; SPECIAL COMMANDS:
+; \username     - the username. Context-specific.
+; \message      - the user's message in plain text.             
+;
+; SIGNON MESSAGE
+;
+S0hi \username, nice to meet you.
+S0hello \username! i'm eliza.
+S1how's it going \username?
+S1what's up?
+S1it's been a while. how's things?
+;
+; TRANSPOSITION TABLE
+;
+TR ARE "
+TR AM "
+TR AM "
+TR ARE "
+TR WERE "
+TR WAS "
+TR WAS "
+TR WERE "
+TR YOU "
+TR I "
+TR I "
+TR YOU "
+TR YOUR "
+TR MY "
+TR MY "
+TR YOUR "
+TR I'VE "
+TR YOU'VE "
+TR YOU'VE "
+TR I'VE "
+TR I'M "
+TR YOU'RE "
+TR YOU'RE "
+TR I'M "
+TR ME "
+TR YOU "
+TR YOU "
+TR ME "
+TR AREN'T "
+TR AM NOT "
+TR WEREN'T "
+TR WASN'T "
+TR WASN'T "
+TR WEREN'T "
+TR I'D "
+TR YOU'D "
+TR YOU'D "
+TR I'D "
+TR DAD "
+TR FATHER "
+TR MOM "
+TR MOTHER "
+TR DREAMS "
+TR DREAM "
+;
+; NULL RESPONSES
+;
+NLyou're gonna wear your enter key out if you keep that up.
+NLhow am I supposed to talk if you won't say anything?
+NLHUH?
+NLWHAT?
+NLCOME AGAIN?
+;
+; NON-NOUN MESSAGE
+; messages that are neither a fact nor a noun.
+NNI'M NOT SURE I KNOW WHAT YOU'RE TALKING ABOUT.
+NNWHAT'S THAT SUPPOSED TO MEAN?
+NNCAN YOU CLARIFY THAT A BIT?
+;
+; NON-FACT MESSAGE
+; messages that are a noun but not a fact.
+NFwhat about \message?
+NFtell me more about \message.
+;
+; operator list
+; in descending order of priority!!
+; todo: improve list.
+;
+
+OP dislike
+OP hate
+OP dont like
+OP don't like
+
+OP like
+OP likes
+OP love
+OP loves
+
+OP is
+OP are
+OP was
+OP were
+OP will be
+
+OP has
+OP had
+OP have
+;
+OP says
+OP said
+OP say
+;
+OP do
+OP did
+OP does
+OP will do
+;
+; pronoun definition list.
+; could be improved :)
+
+; PERSONAL PRONOUNS
+
+PC first-person singular ; current user
+PR i
+PR me
+PR myself
+PR my
+PR mine
+
+PC second-person singular ; referring to Eliza
+PR you
+PR your
+PR yours
+PR yourself
+
+
+PC third-person singular genderless
+PR it
+PR its
+PR itself
+PR they
+PR them
+
+PC third-person singular unspecified ; 
+PR they
+PR them
+PR their
+
+PC third-person plural genderless
+PR they
+PR them
+PR those
+
+
+PC third-person singular male
+PR he
+PR him
+PR his
+PR himself
+
+PC third-person singular female
+PR she
+PR her
+PR hers
+PR herself
+
+; DEMONSTRATIVE PRONOUNS
+
+PC demonstrative ;not used currently
+PR this
+PR that
+
+; 
+; lexical term boundaries
+; these words act like punctuation when trimming LS's.
+;
+TB because
+TB cos
+TB as
+TB also
+TB and
+TB or
+
+
+;
+; FALLBACK keywords.
+; revert to these if no operator is found.
+;
+KE hello
+KE sup
+KE hi
+KE what's up
+KE whats up
+RE hi! what do you want to talk about?
+RE hello \username! what do you want to talk about today?

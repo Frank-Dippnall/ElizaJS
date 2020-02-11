@@ -1,0 +1,5 @@
+
+The names in this directory are a processed version of a name set found in the 
+American Registry for Internet Numbers (ARIN) CLI available at:
+
+https://github.com/arineng/arincli 
