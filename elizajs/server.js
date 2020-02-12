@@ -147,7 +147,8 @@ io.on("connection", function (socket) {
                                         let log_str = "";
                                         let conn = createConnection();
                                         //construct serial string.
-                                        for (line of data.log) {
+                                        for (log_entry of data.log) {
+                                            let line = log_entry.text;
                                             //console.log("checking '" + line + "' : " + line.match(invalidMessageRegex));
                                             //validate line.
                                             if (line.match(invalidMessageRegex)) {
@@ -155,7 +156,7 @@ io.on("connection", function (socket) {
                                                 return;
                                             }
                                             else {
-                                                log_str += line + "//";
+                                                log_str += log_entry.agent + "|" + line + "//";
                                             }
                                         }
 
@@ -193,9 +194,56 @@ io.on("connection", function (socket) {
                                         } else socket.emit("log_received", { success: false, reason: "The given username failed server-side validation." });
                                     });
                                     //enable factbase querying service.
+                                    var min_query_size = 3;
+                                    var max_query_size = 50;
+
                                     socket.on("query_factbase", function (data) {
                                         console.log("Query: " + data.query)
                                         let query = data.query;
+                                        if (query.length >= min_query_size) {
+                                            if (query.length >= min_query_size) {
+                                                //query validated. query table.
+                                                let conn = createConnection();
+                                                conn.connect(function (err) {
+                                                    if (err) throw err;
+                                                    else {
+                                                        //connection successful. query factbase.
+                                                        let sql = `
+                                                        SELECT fact_id, negotiator, gender, term1, operator, term2 
+                                                        FROM ElizaMemory inner join ElizaAcquaintance
+                                                        ON ElizaMemory.negotiator = ElizaAcquaintance.username
+                                                        WHERE term1 = ${mysql.escape(query)};
+                                                        `;
+                                                        conn.query(sql, function (err, results) {
+                                                            if (err) console.log(err)
+                                                            else {
+                                                                console.log(query, results);
+                                                                let formatted_results = [];
+
+                                                                for (result of results) {
+
+                                                                    formatted_results.push({
+                                                                        fact_id: result.fact_id,
+                                                                        term1: result.term1,
+                                                                        operator: result.operator,
+                                                                        term2: result.term2,
+                                                                        negotiator: {
+                                                                            username: result.negotiator,
+                                                                            gender: result.gender
+                                                                        }
+
+                                                                    });
+                                                                }
+                                                                console.log("EMMITTING")
+                                                                socket.emit("query_result", { success: true, results: formatted_results });
+                                                            }
+                                                        })
+                                                    }
+                                                });
+
+                                            } else socket.emit("query_result", { success: false, reason: "Query must be at most 50 characters long." });
+                                        } else socket.emit("query_result", { success: false, reason: "Query must be at least 3 characters long." });
+
                                     });
                                 }
                             }

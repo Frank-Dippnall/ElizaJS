@@ -27,7 +27,10 @@ function loadEliza(options, methods, callback, forceNew = false) {
     let eliza = ElizaBot.createInstance(type, {
         output: document.getElementById("bot_output"),
         container: document.getElementById("bot_inner"),
-        username: options.username,
+        user: {
+            username: options.username,
+            gender: options.gender
+        },
         wait_time: {
             bot: options.eliza_slow ? 30 : 0,
             user: options.user_slow ? 20 : 0,
@@ -60,18 +63,38 @@ function loadEliza(options, methods, callback, forceNew = false) {
         }
     });
     function updateUI() {
-        if (eliza.ready) {
-            eliza_element.style.backgroundColor = "#ddffdd";
-            input_box.placeholder = "Enter message and press enter";
+        if (eliza.readyState === null) {
+            //loading
+            eliza_element.style.backgroundColor = "#aaaaaa";
+            input_box.placeholder = "Loading";
         }
         else {
-            eliza_element.style.backgroundColor = "#ffdddd";
-            input_box.placeholder = "Please wait";
+            switch (eliza.readyState) {
+                case 0:
+                    //thinking/querying.
+                    eliza_element.style.backgroundColor = "#ffdddd";
+                    input_box.placeholder = "Eliza is thinking";
+                    break;
+                case 1:
+                    //printing text to screen.
+                    eliza_element.style.backgroundColor = "#fff2d4";
+                    input_box.placeholder = "Please wait";
+                    break;
+                case 2:
+                    //ready.
+                    eliza_element.style.backgroundColor = "#ddffdd";
+                    input_box.placeholder = "Enter message and press enter";
+                    break;
+
+            }
         }
+
     }
     setInterval(updateUI, 10);
     callback(eliza);
 }
+
+
 
 
 
@@ -117,6 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     //connection established. send user data.
                     loadEliza({
                         username,
+                        gender, //user's gender
                         eliza_slow,
                         user_slow,
                         new_user: response.new_user
@@ -143,8 +167,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
                             });
                         },
-                        query_factbase: function (query) {
+                        query_factbase: function (query, callback) {
                             console.log("query factbase for string: \"" + query + "\"");
+                            socket.emit("query_factbase", { query });
+                            socket.off("query_result"); //destroy old query_result listener.
+                            socket.on("query_result", function (response) {
+                                //format results
+                                let formatted_results = [];
+                                for (result of response.results) {
+                                    let gender = result.negotiator.gender;
+                                    switch (gender.toLowerCase()) {
+                                        case "m": gender = "MALE"; break;
+                                        case "f": gender = "FEMALE"; break;
+                                        case "": gender = "UNSPECIFIED"; break;
+                                    }
+                                    result.negotiator.gender = gender;
+                                    formatted_results.push(result);
+                                }
+                                callback(formatted_results)
+                            });
                         }
                     }, function (eliza) {
                         //eliza is loaded. hide form and loading_elem

@@ -4,8 +4,10 @@
 ; FORMAT:
 ; S0 - define signon message for new user
 ; S1 - define signon message for known user
-; TR
-; TR - DEFINE PAIR OF WORDS TO TRANSPOSE - deprecated.
+; TT - transpose to this word (output message)
+; TF - transpose from these words (output message)
+; FT - format : replace the following FFs with this in the user message.
+; FF - format from : replace any of these with their corresponding FO in the user message
 ; NL - response for null entry
 ; NN - response for non-noun message.
 ; NF - response non-fact noun message.
@@ -13,12 +15,23 @@
 ; PC - pronoun class (usage: PC  [person] [plurality] [gender])
 ; PR - pronoun
 ; TB - define term boundary
+; QK - query keyword. ask eliza a question.
+; QY - query response. text in response of QK if fact is found.
+; QN - query response. text in repsonse of QK if fact is not found.
+; FR - fact response.
 ; KE - fallback keyword
 ; RE - fallback response
 ;
 ; SPECIAL COMMANDS:
-; \username     - the username. Context-specific.
-; \message      - the user's message in plain text.             
+; these strings if found will be replaced in the output message.
+; \username           - the current user's username.
+; \message            - the user's message in plain text.             
+; \negotiator         - the negotiator of the fact's username.     
+; \negotiator_pronoun - the negotiator's pronoun.
+; \fact               - the fact. be sure to transpose this with the relevant context.
+; \noun               - the subject of the fact.
+; \pronoun            - the pronoun for the subject of the fact.
+; \pronoun_fact       - the fact with the noun replaced with \pronoun.
 ;
 ; SIGNON MESSAGE
 ;
@@ -28,52 +41,117 @@ S1how's it going \username?
 S1what's up?
 S1it's been a while. how's things?
 ;
-; TRANSPOSITION TABLE
+; transpose output message
 ;
-TR ARE "
-TR AM "
-TR AM "
-TR ARE "
-TR WERE "
-TR WAS "
-TR WAS "
-TR WERE "
-TR YOU "
-TR I "
-TR I "
-TR YOU "
-TR YOUR "
-TR MY "
-TR MY "
-TR YOUR "
-TR I'VE "
-TR YOU'VE "
-TR YOU'VE "
-TR I'VE "
-TR I'M "
-TR YOU'RE "
-TR YOU'RE "
-TR I'M "
-TR ME "
-TR YOU "
-TR YOU "
-TR ME "
-TR AREN'T "
-TR AM NOT "
-TR WEREN'T "
-TR WASN'T "
-TR WASN'T "
-TR WEREN'T "
-TR I'D "
-TR YOU'D "
-TR YOU'D "
-TR I'D "
-TR DAD "
-TR FATHER "
-TR MOM "
-TR MOTHER "
-TR DREAMS "
-TR DREAM "
+TT ARE
+TF AM
+
+TT AM
+TF ARE
+
+TT WERE
+TF WAS
+
+TT WAS
+TF WERE
+
+TT YOU
+TF I
+
+TT I
+TF YOU
+
+TT YOUR
+TF MY
+
+TT MY
+TF YOUR
+
+TT I'VE
+TF YOU'VE
+
+TT YOU'VE
+TF I'VE
+
+TT I'M
+TF YOU'RE
+
+TT YOU'RE
+TF I'M
+
+TT ME
+TF YOU
+
+TT YOU
+TF ME
+
+TT WEREN'T
+TF WASN'T
+
+TT WASN'T
+TF WEREN'T
+
+TT I'D
+TF YOU'D
+
+TT YOU'D
+TF I'D
+
+TT AREN'T
+TF AM NOT
+
+;
+; format user message
+;
+FT i am
+FF im
+FF i'm
+
+FT he is
+FF hes
+FF he's
+
+FT she is
+FF shes
+FF she's
+
+FT they are
+FF theyre
+FF they're
+
+FT you are
+FF youre
+FF you're
+
+FT i have
+FF ive
+FF i've
+
+FT is not
+FF isnt
+FF isn't
+
+FT are not
+FF arent
+FF aren't
+
+FT was not
+FF wasnt
+FF wasn't
+
+FT were not
+FF werent
+FF weren't
+
+FT will not
+FF wont
+FF won't
+
+FT it is
+FF its
+FF it's
+
+
 ;
 ; NULL RESPONSES
 ;
@@ -108,6 +186,12 @@ OP like
 OP likes
 OP love
 OP loves
+
+OP is not
+OP are not
+OP was not
+OP were not
+OP will not be
 
 OP is
 OP are
@@ -193,8 +277,27 @@ TB as
 TB also
 TB and
 TB or
+TB too
+TB that
 
+;
+; fact responses to display when a new fact is found.
+;
+FR \fact. got it.
+FR i'll try to remember that \fact.
+FR i'll keep that in mind.
 
+;
+; Querying Definitions
+;
+QK do you know about
+QK do you know
+QK have you heard of
+QR let me just look that up.
+QR let's see...
+QR hold on a minute.
+QY \negotiator told me about \noun. \negotiator_pronoun said that \pronoun_fact.
+QN i'm afraid not. can you tell me about \noun?
 ;
 ; FALLBACK keywords.
 ; revert to these if no operator is found.
@@ -206,3 +309,17 @@ KE what's up
 KE whats up
 RE hi! what do you want to talk about?
 RE hello \username! what do you want to talk about today?
+
+KE bye
+KE goodbye
+KE cya
+KE see you
+KE later
+KE farewell
+KE see ya
+RE you're leaving already? 
+RE bye \username! have a nice day
+
+KE what
+KE how
+RE confused? you should read the documentation!

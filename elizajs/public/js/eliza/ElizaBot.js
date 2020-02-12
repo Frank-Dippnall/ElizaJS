@@ -29,7 +29,6 @@ Array.binarySearchBoolean = function (search_item, sorted_array) {
     let index = Math.floor(sorted_array.length / 2);
     let current_item = sorted_array[index];
     if (search_item < current_item) {
-        sorted_array.splice(index, sorted_array.length - index);
         return Array.binarySearchBoolean(search_item, sorted_array.slice(0, index));
     }
     else if (search_item > current_item) {
@@ -39,7 +38,7 @@ Array.binarySearchBoolean = function (search_item, sorted_array) {
         return true; //item found.
     }
     console.log("Array.binarySearchBoolean should not exit here!");
-
+    return undefined;
 }
 
 //pause async thread operation for 'ms' milliseconds.
