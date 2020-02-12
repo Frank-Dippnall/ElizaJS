@@ -22,6 +22,10 @@ class ElizaBotNew {
         else this._readyState = null;
     }
 
+    get methods() {
+        return this._methods;
+    }
+
     constructor(options, methods) {
         this.options = options;
         this.bot_type = "eliza_new";
@@ -84,7 +88,7 @@ class ElizaBotNew {
                 for (name of tempNames) {
                     eliza.names.male.push(name.trim());
                 }
-                console.log("'male' nameset complete. ", eliza.names.male)
+                console.log("'male' nameset complete. ")
             }
         }
         xmlhttp_male.send();
@@ -122,14 +126,15 @@ class ElizaBotNew {
                 await this._output("!quit", 'user');
                 await this._output("Goodbye " + this.options.user.username);
                 this.readyState = null;
-                if (this._methods.log_conversation) this._methods.log_conversation(this.options.user.username, this.log, this.bot_type);
+                if (this.methods.log_conversation) this.methods.log_conversation(this.options.user.username, this.log, this.bot_type);
             }
             else {
-                this.last_message_time = new Date().getTime();
+
                 this.last_message = message;
                 this.readyState = 1;
                 await this._output(message, 'user');
-
+                //start timer
+                this.last_message_time = new Date().getTime();
                 //get response from eliza
                 let eliza = this; //expose eliza to callback
                 this.readyState = 0;
@@ -178,7 +183,7 @@ class ElizaBotNew {
                         //respond immediately.
                         let eliza = this; //expose eliza to callback
                         this._output(this._case(Array.getRandom(query.responses)), "bot", false, function () {
-                            eliza._methods.query_factbase(term, function (results) {
+                            eliza.methods.query_factbase(term, function (results) {
                                 console.log("results of query: ", results)
                                 //set current context.
 
@@ -208,7 +213,7 @@ class ElizaBotNew {
                                     callback("I'm having trouble connecting to my memory database right now. Try again?")
                                 }
                             });
-                        });
+                        }, this.options.wait_time.response); //query delay.
                         return; //stop execution after this code is run.
                     }
                 }
@@ -295,32 +300,46 @@ class ElizaBotNew {
                     }
 
 
+                    //check if terms are valid
+                    if (!(this._is_valid_term(term1) && this._is_valid_term(term2))) {
+                        console.log("either term1 or term2 is invalid!")
+                        break fact_extraction;
+                    }
+
                     //context has been applied. 
                     //reaching this point means that the fact extraction is confirmed.
                     console.log("fact confirmed: " + term1 + "|" + op + "|" + term2);
+
+                    //construct fact.
+                    let fact = {
+                        term1,
+                        operator: op,
+                        term2,
+                        negotiator: {
+                            username: this.options.user.username,
+                            gender: this.options.user.gender
+                        }
+                    }
 
                     //update active context the SUBJECT is term1 assumedly.
                     this._update_active_context({
                         noun: term1,
                         pronoun_class: this._estimate_pronoun_class(term1),
-                        fact: {
-                            term1,
-                            operator: op,
-                            term2,
-                            negotiator: {
-                                username: this.options.user.username,
-                                gender: this.options.user.gender
-                            }
-                        }
+                        fact
                     })
 
-                    //debug
+                    //callback.
                     callback(Array.getRandom(this.definitions.fact_responses))
-                    //callback(this._transpose(term1) + " " + op + " " + this._transpose(term2) + ". Got it.");
+
+                    //send new fact to factbase.
+                    if (this.methods.send_new_fact) {
+                        console.log("new fact sent to server: ", fact)
+                        this.methods.send_new_fact(fact);
+                    }
+
+
                     return;
-
-
-                    break; //do not continue searching since higher priority op found.
+                    //do not continue searching since higher priority op found.
                 }
             }
 
@@ -427,28 +446,43 @@ class ElizaBotNew {
 
         //plurality rule: ends in 's'
         if (term[term.length - 1].toLowerCase() === 's') pronoun_class.plurality = "PLURAL";
-        //gender rule: search for names.
 
         let words = term.split(" ");
-
         for (let word of words) {
+            //gender rule: search for gendered words.
+            for (let gender_set of this.definitions.gendered_words) {
+                if (Array.binarySearchBoolean(word, gender_set.words)) {
+                    pronoun_class.gender = gender_set.gender;
+                }
+            }
 
+            //gender rule: search for names.
             if (Array.binarySearchBoolean(word, this.names.male)) {
                 pronoun_class.gender = "MALE";
+                break;
             }
             else if (Array.binarySearchBoolean(word, this.names.female)) {
                 pronoun_class.gender = "FEMALE";
+                break;
             }
             else if (Array.binarySearchBoolean(word, this.names.unknown)) {
                 pronoun_class.gender = "UNKNOWN";
+                break;
             }
         }
+
+
 
         return pronoun_class;
 
     }
     _is_valid_term(string) {
         //returns true if the given string is a valid lexical term assuming no context.
+        //blacklisted words are not valid.
+        for (let word of this.definitions.term_blacklist) {
+            if (string.search(new RegExp("\\b" + word + "\\b")) >= 0) return false;
+        }
+
         //punctuation is not valid.
         console.log("checking ", string)
         if (string.match(punctuationRegex)) {
@@ -493,21 +527,34 @@ class ElizaBotNew {
         if (this.active_context) {
             if (this.active_context.fact) {
                 let fact = this.active_context.fact;
+                console.log("replacing for ", fact)
                 line = line
-                    .replace("\\FACT", this._transpose(fact.term1) + " " + fact.operator + " " + this._transpose(fact.term2))
-                    .replace("\\PRONOUN_FACT", this._transpose(this._get_first_pronoun(this.active_context.pronoun_class)) + " " + fact.operator + " " + this._transpose(fact.term2))
-                    .replace("\\NEGOTIATOR_PRONOUN", this._get_first_pronoun({ person: "THIRD-PERSON", plurality: "SINGULAR", gender: fact.negotiator.gender }))
-                    .replace("\\NEGOTIATOR", fact.negotiator.username)
+                    .replace("\\FACT", this._transpose_fact(fact.term1) + " " + fact.operator + " " + this._transpose_fact(fact.term2))
+                    .replace("\\PRONOUN_FACT", this._get_first_pronoun(this.active_context.pronoun_class) + " " + fact.operator + " " + this._transpose_fact(fact.term2));
+
+                if (this.options.user.username === fact.negotiator.username) {
+                    //this user gave the fact.
+                    line = line
+                        .replace("\\NEGOTIATOR_PRONOUN", this._get_first_pronoun({ person: "SECOND-PERSON", plurality: "SINGULAR", gender: fact.negotiator.gender }))
+                        .replace("\\NEGOTIATOR", fact.negotiator.username)
+                }
+                else {
+                    //another user gave the fact
+                }
+
 
             }
             line = line
-                .replace("\\NOUN", this.active_context.noun)
+                .replace("\\NOUN", this._transpose(this.active_context.noun))
                 .replace("\\PRONOUN", this._get_first_pronoun(this.active_context.pronoun_class))
 
         }
 
         //case properly.
-        return this._case(line);
+        line = this._case(line);
+
+        line = line.replace(new RegExp("\\b" + "eliza" + "\\b", "g"), "Eliza")
+        return line;
     }
     _get_first_pronoun(pronoun_class) {
         //returns the first pronoun in the pronoun class given.
@@ -530,7 +577,7 @@ class ElizaBotNew {
         for (let string of words) {
             let word = this._remove_punctuation(string)
             let punctuation = string.substr(string.search(word) + word.length);
-            console.log(`'${string}', '${word}', '${punctuation}'`)
+
             //case word
             //capitalise special words.
             if (word === "i") word = "I"
@@ -602,6 +649,26 @@ class ElizaBotNew {
         }
         return output_string;
     }
+    _transpose_fact(text) {
+        //replaces words with FTs. use on facts
+        let words = text.toUpperCase().split(" "); //includes punctuation!
+        let output_string = "";
+        for (let string of words) {
+            let word = this._remove_punctuation(string)
+            let punctuation = string.substr(string.search(word) + word.length);
+
+            for (let transpose of this.definitions.transpose) {
+                if (transpose.from.findIndex(t => t === word) >= 0) {
+                    //word has a transposition. substitute.
+                    word = transpose.to;
+                    break;
+                }
+            }
+            output_string += " " + word + punctuation;
+        }
+        return output_string;
+    }
+
     _format(text) {
         //replaces words with FTs. use on the user message.
         let words = text.toUpperCase().split(" "); //includes punctuation!
@@ -631,13 +698,14 @@ class ElizaBotNew {
     }
     _parse_definitions(definition_text) {
 
-        console.log("to parse: ", definition_text)
+        //console.log("to parse: ", definition_text)
 
         var definitions = {
             sign_on: {
                 new_user: [],
                 known_user: [],
             },
+            priority: [],
             transpose: [],
             format: [],
             null_entry: [],
@@ -646,21 +714,18 @@ class ElizaBotNew {
             operators: [],
             fact_responses: [],
             term_boundaries: [],
+            term_blacklist: [],
             pronoun_classes: [],
+            gendered_words: [],
             query: [],
             fallback: [],
         }
 
         var definition_lines = definition_text.split("\n");
         //initialise context
-        var current_transpose_index = null;
-        var current_format_index = null;
-        var current_pronoun_index = null;
-        //query variables
-        var current_query_index = null;
+        var current_index = null;
+        var current_priority_keyword = null;
         var current_query_keyword = null;
-        //fallback variables.
-        var current_fallback_index = null;
         var current_fallback_keyword = null;
         for (let line of definition_lines) {
             let command = line[0] + line[1]; //two letter opcode as of new version.
@@ -674,23 +739,44 @@ class ElizaBotNew {
                     //sign on message for known user.
                     definitions.sign_on.known_user.push(text);
                     break;
+                case 'IF':
+                    //get index of current priority keywords
+                    current_index = definitions.query.findIndex(f => f.keywords.findIndex(k => k === current_priority_keyword) >= 0);
+                    //query keyword
+                    current_priority_keyword = text;
+                    //does query already exist?
+                    if (current_index >= 0) {
+                        //add keyword to current keyword.
+                        definitions.query[current_index].keywords.push(current_priority_keyword);
+                    }
+                    else {
+                        //create keyword list member.
+                        current_index = definitions.query.length;
+                        definitions.priority.push({ keywords: [current_priority_keyword], responses: [], });
+                    }
+                    break;
+                case 'RE':
+                    //add response to priority keyword responses.
+                    current_priority_keyword = null; //reset query keyword context.
+                    definitions.priority[current_index].responses.push(text);
+                    break;
                 case 'TT':
                     //transpose to
-                    current_transpose_index = definitions.transpose.length;
+                    current_index = definitions.transpose.length;
                     definitions.transpose.push({ to: text, from: [] });
                     break;
                 case 'TF':
                     //transpose from
-                    definitions.transpose[current_transpose_index].from.push(text);
+                    definitions.transpose[current_index].from.push(text);
                     break;
                 case 'FT':
                     //format to
-                    current_format_index = definitions.format.length;
+                    current_index = definitions.format.length;
                     definitions.format.push({ to: text, from: [] });
                     break;
                 case 'FF':
                     //format from.
-                    definitions.format[current_format_index].from.push(text);
+                    definitions.format[current_index].from.push(text);
                     break;
                 case 'NL':
                     //null entry
@@ -712,82 +798,91 @@ class ElizaBotNew {
                     //pronoun class.
                     //create pronoun class.
                     let pronoun_class = text.split(";")[0].trim().split(" ");
-                    current_pronoun_index = definitions.pronoun_classes.length;
+                    current_index = definitions.pronoun_classes.length;
                     definitions.pronoun_classes.push({ person: pronoun_class[0], plurality: pronoun_class[1], gender: pronoun_class[2], pronouns: [] });
                     break;
                 case 'PR':
                     //pronoun inside PC
-                    definitions.pronoun_classes[current_pronoun_index].pronouns.push(text);
+                    definitions.pronoun_classes[current_index].pronouns.push(text);
+                    break;
+                case 'GC':
+                    //gendered word class.
+                    current_index = definitions.gendered_words.length;
+                    definitions.gendered_words.push({ gender: text, words: [] });
+                    break;
+                case 'GW':
+                    //word inside GC
+                    definitions.gendered_words[current_index].words.push(text);
                     break;
                 case 'TB':
                     //term boundary.
                     definitions.term_boundaries.push(text);
                     break;
+                case 'TX':
+                    //term blacklist entry.
+                    definitions.term_blacklist.push(text);
+                    break;
                 case 'QK':
                     //get index of current fallback keywords
-                    current_query_index = definitions.query.findIndex(f => f.keywords.findIndex(k => k === current_query_keyword) >= 0);
+                    current_index = definitions.query.findIndex(f => f.keywords.findIndex(k => k === current_query_keyword) >= 0);
                     //query keyword
                     current_query_keyword = text;
                     //does query already exist?
-                    if (current_query_index >= 0) {
+                    if (current_index >= 0) {
                         //add keyword to current keyword.
-                        definitions.query[current_query_index].keywords.push(current_query_keyword);
+                        definitions.query[current_index].keywords.push(current_query_keyword);
                     }
                     else {
                         //create keyword list member.
-                        current_query_index = definitions.query.length;
+                        current_index = definitions.query.length;
                         definitions.query.push({ keywords: [current_query_keyword], responses: [], responses_yes: [], responses_no: [] });
                     }
                     break;
                 case 'QR':
                     //add response to query keyword responses.
                     current_query_keyword = null; //reset query keyword context.
-                    definitions.query[current_query_index].responses.push(text);
+                    definitions.query[current_index].responses.push(text);
                     break;
                 case 'QY':
                     //add response to query keyword responses.
                     current_query_keyword = null; //reset query keyword context.
-                    definitions.query[current_query_index].responses_yes.push(text);
+                    definitions.query[current_index].responses_yes.push(text);
                     break;
                 case 'QN':
                     //add response to query keyword responses.
                     current_query_keyword = null; //reset query keyword context.
-                    definitions.query[current_query_index].responses_no.push(text);
+                    definitions.query[current_index].responses_no.push(text);
                     break;
                 case 'FR':
                     //fact response
                     definitions.fact_responses.push(text);
-                case 'KE':
+                case 'FK':
                     //get index of current fallback keywords
-                    current_fallback_index = definitions.fallback.findIndex(f => f.keywords.findIndex(k => k === current_fallback_keyword) >= 0);
+                    current_index = definitions.fallback.findIndex(f => f.keywords.findIndex(k => k === current_fallback_keyword) >= 0);
                     //fallback keyword
                     current_fallback_keyword = text;
                     //does fallback already exist?
-                    if (current_fallback_index >= 0) {
+                    if (current_index >= 0) {
                         //add keyword to current keyword.
-                        definitions.fallback[current_fallback_index].keywords.push(current_fallback_keyword);
+                        definitions.fallback[current_index].keywords.push(current_fallback_keyword);
                     }
                     else {
                         //create keyword list member.
-                        current_fallback_index = definitions.fallback.length;
+                        current_index = definitions.fallback.length;
                         definitions.fallback.push({ keywords: [current_fallback_keyword], responses: [] });
                     }
                     break;
-                case 'RE':
+                case 'FM':
                     //add response to fallback keyword responses.
                     current_fallback_keyword = null; //reset fallback keyword context.
-                    definitions.fallback[current_fallback_index].responses.push(text);
+                    definitions.fallback[current_index].responses.push(text);
                     break;
                 default:
-                    current_pronoun_index = null;
-                    current_fallback_index = null;
-                    current_transpose_index = null;
-                    current_format_index = null;
-                    current_fallback_keyword;
+                    current_index = null;
                     break;
             }
         }
-        console.log(definitions)
+        console.log("DEFINITIONS PARSED: ", definitions)
         return definitions;
     }
     _fast_output(newmessage, agent = 'bot') {
@@ -796,7 +891,7 @@ class ElizaBotNew {
         this.options.output.innerHTML = this.output_html;
     }
 
-    async _output(text, agent = 'bot', nowait = false, callback = function () { }) {
+    async _output(text, agent = 'bot', nowait = false, callback = function () { }, callback_delay = 0) {
         console.log("outputting ", text)
         if (agent === 'bot' && !nowait) {
             await sleep(this.options.wait_time.response);
@@ -818,7 +913,7 @@ class ElizaBotNew {
             this._fast_output(text, agent);
             this._update_container();
         }
-        callback();
+        setTimeout(callback, callback_delay);
 
     }
     _update_container() {

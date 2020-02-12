@@ -186,6 +186,13 @@ document.addEventListener("DOMContentLoaded", function () {
                                 }
                                 callback(formatted_results)
                             });
+                        },
+                        send_new_fact: function (fact) {
+                            //client-side validation TODO.
+
+                            //sends the given fact to the server.
+                            socket.emit("new_fact", { fact });
+                            console.log("new fact sent to server: ", fact);
                         }
                     }, function (eliza) {
                         //eliza is loaded. hide form and loading_elem

@@ -4,6 +4,8 @@
 ; FORMAT:
 ; S0 - define signon message for new user
 ; S1 - define signon message for known user
+; IF - priority message keyword
+; RE - priority message response.
 ; TT - transpose to this word (output message)
 ; TF - transpose from these words (output message)
 ; FT - format : replace the following FFs with this in the user message.
@@ -14,18 +16,21 @@
 ; OP  - operator
 ; PC - pronoun class (usage: PC  [person] [plurality] [gender])
 ; PR - pronoun
+; GC - define gendered word class
+; GW - define word in gendered word class.
 ; TB - define term boundary
+; TX - define term blacklist.
 ; QK - query keyword. ask eliza a question.
 ; QY - query response. text in response of QK if fact is found.
-; QN - query response. text in repsonse of QK if fact is not found.
+; QN - query response. text in response of QK if fact is not found.
 ; FR - fact response.
-; KE - fallback keyword
-; RE - fallback response
+; FK - fallback keyword
+; FM - fallback response message
 ;
 ; SPECIAL COMMANDS:
 ; these strings if found will be replaced in the output message.
 ; \username           - the current user's username.
-; \message            - the user's message in plain text.             
+; \message            - the user's message in plain text. !deprecated. use \fact            
 ; \negotiator         - the negotiator of the fact's username.     
 ; \negotiator_pronoun - the negotiator's pronoun.
 ; \fact               - the fact. be sure to transpose this with the relevant context.
@@ -41,6 +46,10 @@ S1how's it going \username?
 S1what's up?
 S1it's been a while. how's things?
 ;
+; priority message
+; unimplemented as of now.
+
+;
 ; transpose output message
 ;
 TT ARE
@@ -55,11 +64,11 @@ TF WAS
 TT WAS
 TF WERE
 
-TT YOU
-TF I
+;TT YOU
+;TF I
 
-TT I
-TF YOU
+;TT I
+;TF YOU
 
 TT YOUR
 TF MY
@@ -151,6 +160,11 @@ FT it is
 FF its
 FF it's
 
+FT cannot
+FF can not
+FF can't
+FF cant
+
 
 ;
 ; NULL RESPONSES
@@ -169,8 +183,8 @@ NNCAN YOU CLARIFY THAT A BIT?
 ;
 ; NON-FACT MESSAGE
 ; messages that are a noun but not a fact.
-NFwhat about \message?
-NFtell me more about \message.
+NFwhat about \noun?
+NFtell me more about \noun.
 ;
 ; operator list
 ; in descending order of priority!!
@@ -193,11 +207,16 @@ OP was not
 OP were not
 OP will not be
 
+
 OP is
 OP are
 OP was
 OP were
 OP will be
+
+OP cannot be
+
+OP can be
 
 OP has
 OP had
@@ -243,6 +262,11 @@ PR they
 PR them
 PR their
 
+PC third-person singular unknown
+PR they
+PR them
+PR their
+
 PC third-person plural genderless
 PR they
 PR them
@@ -267,6 +291,54 @@ PC demonstrative ;not used currently
 PR this
 PR that
 
+;
+; gendered words.
+;
+GC MALE
+GW father
+GW dad
+GW pa
+GW grandfather
+GW grand-father
+GW grandpa
+GW brother
+GW bro
+GW uncle
+GW nephew
+GW son
+GW grandson
+GW grand-son
+GW boy
+GW man
+GW male
+
+
+GC FEMALE
+GW mother
+GW mum
+GW mom
+GW ma
+GW grandmother
+GW grand-mother
+GW grandma
+GW gran
+GW sister
+GW sis
+GW aunt
+GW aunty
+GW auntie
+GW niece
+GW neice 
+GW daughter
+GW grand-daughter
+GW girl
+GW woman
+GW female
+
+
+
+
+
 ; 
 ; lexical term boundaries
 ; these words act like punctuation when trimming LS's.
@@ -279,6 +351,13 @@ TB and
 TB or
 TB too
 TB that
+
+;
+; lexical term blacklist
+; if any of these words are found in the term, abort.
+;
+
+TX what
 
 ;
 ; fact responses to display when a new fact is found.
@@ -295,6 +374,7 @@ QK do you know
 QK have you heard of
 QR let me just look that up.
 QR let's see...
+QR scanning... beep boop...
 QR hold on a minute.
 QY \negotiator told me about \noun. \negotiator_pronoun said that \pronoun_fact.
 QN i'm afraid not. can you tell me about \noun?
@@ -302,24 +382,24 @@ QN i'm afraid not. can you tell me about \noun?
 ; FALLBACK keywords.
 ; revert to these if no operator is found.
 ;
-KE hello
-KE sup
-KE hi
-KE what's up
-KE whats up
-RE hi! what do you want to talk about?
-RE hello \username! what do you want to talk about today?
+FK hello
+FK sup
+FK hi
+FK what's up
+FK whats up
+FM hi! what do you want to talk about?
+FM hello \username! what do you want to talk about today?
 
-KE bye
-KE goodbye
-KE cya
-KE see you
-KE later
-KE farewell
-KE see ya
-RE you're leaving already? 
-RE bye \username! have a nice day
+FK bye
+FK goodbye
+FK cya
+FK see you
+FK later
+FK farewell
+FK see ya
+FM you're leaving already? 
+FM bye \username! have a nice day.
 
-KE what
-KE how
-RE confused? you should read the documentation!
+FK what
+FK how
+FM confused? you should read the documentation!
