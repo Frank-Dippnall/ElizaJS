@@ -2,8 +2,10 @@
 ; ELIZA SCRIPT FILE
 ;
 ; FORMAT:
-; S0 - define signon message for new user
-; S1 - define signon message for known user
+; Sn - signon message: 
+;   S0 - define signon message for new user
+;   S1 - define signon message for known user
+;   ... extendable ...
 ; IF - priority message keyword
 ; RE - priority message response.
 ; TT - transpose to this word (output message)
@@ -13,7 +15,7 @@
 ; NL - response for null entry
 ; NN - response for non-noun message.
 ; NF - response non-fact noun message.
-; OP  - operator
+; OP - operator
 ; PC - pronoun class (usage: PC  [person] [plurality] [gender])
 ; PR - pronoun
 ; GC - define gendered word class
@@ -23,6 +25,10 @@
 ; QK - query keyword. ask eliza a question.
 ; QY - query response. text in response of QK if fact is found.
 ; QN - query response. text in response of QK if fact is not found.
+; Qn - query response for special case where active_context.noun = query.
+;   Q0 - new fact
+;   Q1 - retreived fact
+;   ... extendable ...
 ; FR - fact response.
 ; FK - fallback keyword
 ; FM - fallback response message
@@ -30,13 +36,16 @@
 ; SPECIAL COMMANDS:
 ; these strings if found will be replaced in the output message.
 ; \username           - the current user's username.
-; \message            - the user's message in plain text. !deprecated. use \fact            
+; \message            - (deprecated. use \fact) the user's message in plain text.             
 ; \negotiator         - the negotiator of the fact's username.     
 ; \negotiator_pronoun - the negotiator's pronoun.
 ; \fact               - the fact. be sure to transpose this with the relevant context.
 ; \noun               - the subject of the fact.
 ; \pronoun            - the pronoun for the subject of the fact.
 ; \pronoun_fact       - the fact with the noun replaced with \pronoun.
+; \fact_timestring    - a time-string for the current fact date (eg "3 days ago")
+; \fact_date          - the date of the fact_date. (dd/mm/yyyy) 
+; \fact_time          - the time of the fact_date. (hh:mm)
 ;
 ; SIGNON MESSAGE
 ;
@@ -165,6 +174,10 @@ FF can not
 FF can't
 FF cant
 
+FT do not
+FF don't
+FF dont
+
 
 ;
 ; NULL RESPONSES
@@ -230,6 +243,22 @@ OP do
 OP did
 OP does
 OP will do
+
+; more verbs!
+OP tastes
+OP taste
+OP feels
+OP feel
+OP looks
+OP look
+OP smells
+OP smell
+OP sounds
+
+
+
+
+
 ;
 ; pronoun definition list.
 ; could be improved :)
@@ -256,11 +285,6 @@ PR its
 PR itself
 PR they
 PR them
-
-PC third-person singular unspecified ; 
-PR they
-PR them
-PR their
 
 PC third-person singular unknown
 PR they
@@ -358,6 +382,9 @@ TB that
 ;
 
 TX what
+TX disagree
+TX do not agree
+TX agree
 
 ;
 ; fact responses to display when a new fact is found.
@@ -374,10 +401,21 @@ QK do you know
 QK have you heard of
 QR let me just look that up.
 QR let's see...
-QR scanning... beep boop...
 QR hold on a minute.
 QY \negotiator told me about \noun. \negotiator_pronoun said that \pronoun_fact.
 QN i'm afraid not. can you tell me about \noun?
+Q0 you just told me that \fact!
+Q1 i said that \negotiator told me \fact.
+Q1 you already know that i remember \fact.
+
+QK look up
+QK lookup
+QK query
+QR sure.
+QR scanning... beep boop...
+QY found it! \negotiator said that \fact.
+QN '\noun' is not in the database.
+
 ;
 ; FALLBACK keywords.
 ; revert to these if no operator is found.
@@ -403,3 +441,22 @@ FM bye \username! have a nice day.
 FK what
 FK how
 FM confused? you should read the documentation!
+
+FK disagree
+FK do not agree
+FK no
+FK wrong
+FK incorrect
+FK false
+FM you don't think so?
+FM you disagree? interesting.
+FM that's wrong? in what way?
+
+FK agree
+FK yes
+FK right
+FK correct
+FK true
+FM you think so?
+FM are you sure you agree?
+FM so you agree then.

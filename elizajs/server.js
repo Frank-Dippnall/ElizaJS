@@ -7,8 +7,14 @@ const io = require("socket.io")(server);
 
 const usernameRegex = /^[a-zA-Z0-9]{1,31}$/;
 const passwordRegex = /^[a-zA-Z0-9]{4,63}$/;
-const genderRegex = /^[mf]?$/;
-const invalidMessageRegex = /[/"`\n\\]/g;
+const genderRegex = /^[mfx]?$/; // 'm' male, 'f' female, 'x' genderless, '' unknown
+const invalidMessageRegex = /[\[\]/"`\n\\]/; //invalid characters
+const invalidTermRegex = /\[\]\/\//; //invalid characters.
+
+const min_term_size = 1;
+const max_term_size = 127;
+const min_operator_size = 1;
+const max_operator_size = 15;
 
 //changed to localhost. 
 var DB_HOST = "localhost"
@@ -75,6 +81,41 @@ function createConnection() {
     });
 }
 
+function validateFact(fact) {
+    /**
+     * fact object must have (at least) these attributes:
+     * fact: {
+     *  term1: string, (valid term)
+     *  operator: string, (valid term)
+     *  term2: string, (valid term)
+     *  negotiator: {
+     *      username: string, (valid username)
+     *   }
+     * }
+     */
+    //this function uses 'truthiness'. you might want to search for this in google. :)
+    if (fact) {
+        if (fact.term1 && fact.term2 && fact.operator && fact.negotiator) {
+            if (!(fact.term1.match(invalidTermRegex) || fact.operator.match(invalidTermRegex) || fact.term2.match(invalidTermRegex))) {
+                if (fact.term1.length >= min_term_size && fact.term1.length <= max_term_size) {
+                    if (fact.operator.length >= min_operator_size && fact.operator.length <= max_operator_size) {
+                        if (fact.term2.length >= min_term_size && fact.term2.length <= max_term_size) {
+                            if (fact.negotiator.username) {
+                                if (fact.negotiator.username.match(usernameRegex)) {
+                                    //valid fact.
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 server.listen(8030, function () {
     console.log("App running on localhost:8030");
 });
@@ -134,14 +175,101 @@ io.on("connection", function (socket) {
                                                         socket.emit("sign_on_result", { success: true, new_user: true });
                                                         addElizaServices() //add services
                                                     }
+                                                    conn.end();
                                                 });
                                             }
-                                            conn.end();
                                         });
                                     } else socket.emit("sign_on_result", { success: false, reason: "Invalid gender. Provide one of \"\", \"m\", \"f\"" });
                                 }
                                 function addElizaServices() {
-                                    //sign-on successful. enable logging + query service.
+                                    //sign-on successful. enable services.
+
+                                    //enable factbase querying service.
+
+
+                                    socket.on("query_factbase", function (data) {
+
+                                        let query = data.query;
+                                        if (query.length >= min_term_size) {
+                                            if (query.length <= max_term_size) {
+                                                //query validated. query table.
+                                                let conn = createConnection();
+                                                console.log("query db for: '" + data.query + "'")
+                                                conn.connect(function (err) {
+                                                    if (err) throw err;
+                                                    else {
+                                                        //connection successful. query factbase.
+                                                        let sql = `
+                                                        SELECT fact_id, negotiator, gender, term1, operator, term2 
+                                                        FROM ElizaMemory inner join ElizaAcquaintance
+                                                        ON ElizaMemory.negotiator = ElizaAcquaintance.username
+                                                        WHERE term1 LIKE ${mysql.escape(query)};
+                                                        `;
+                                                        conn.query(sql, function (err, results) {
+                                                            if (err) console.log(err)
+                                                            else {
+                                                                console.log(query, results);
+                                                                let formatted_results = [];
+
+                                                                for (result of results) {
+
+                                                                    formatted_results.push({
+                                                                        fact_id: result.fact_id,
+                                                                        term1: result.term1,
+                                                                        operator: result.operator,
+                                                                        term2: result.term2,
+                                                                        negotiator: {
+                                                                            username: result.negotiator,
+                                                                            gender: result.gender
+                                                                        }
+
+                                                                    });
+                                                                }
+                                                                socket.emit("query_result", { success: true, results: formatted_results });
+                                                                conn.end();
+                                                            }
+                                                        })
+                                                    }
+                                                });
+
+                                            } else socket.emit("query_result", { success: false, reason: "Query must be at most " + max_term_size + " character(s) long." });
+                                        } else socket.emit("query_result", { success: false, reason: "Query must be at least " + min_term_size + " character(s) long." });
+
+                                    });
+                                    //enable new fact creation service.
+                                    socket.on("new_fact", function (data) {
+                                        //validate fact.
+                                        if (validateFact(data.fact)) {
+                                            let fact = data.fact;
+                                            console.log("inserting new fact into the database.", data.fact)
+
+                                            let conn = createConnection();
+                                            conn.connect(function (err) {
+                                                if (err) console.log(err);
+                                                else {
+                                                    let d = new Date();
+                                                    sql = `INSERT INTO ElizaMemory(negotiator, fact_date, term1, operator, term2) VALUES (
+                                                ${mysql.escape(fact.negotiator.username)},
+                                                '${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}',
+                                                ${mysql.escape(fact.term1)},
+                                                ${mysql.escape(fact.operator)},
+                                                ${mysql.escape(fact.term2)}
+                                               );`
+                                                    conn.query(sql, function (err) {
+                                                        if (err) throw sql + err;
+                                                        else {
+                                                            console.log("ElizaMemory entry added for '" + fact.term1 + " " + fact.operator + " " + fact.term2 + "'");
+                                                        }
+                                                    });
+                                                }
+                                                conn.end();
+                                            });
+                                        }
+
+
+
+                                    });
+                                    //enable conversation logging service.
                                     socket.on("conversation_log", function (data) {
                                         console.log("conversation log request received. ")
                                         let log_str = "";
@@ -156,7 +284,7 @@ io.on("connection", function (socket) {
                                                 return;
                                             }
                                             else {
-                                                log_str += log_entry.agent + "|" + line + "//";
+                                                log_str += "[" + log_entry.agent + "]" + line + "//";
                                             }
                                         }
 
@@ -193,58 +321,7 @@ io.on("connection", function (socket) {
 
                                         } else socket.emit("log_received", { success: false, reason: "The given username failed server-side validation." });
                                     });
-                                    //enable factbase querying service.
-                                    var min_query_size = 3;
-                                    var max_query_size = 50;
 
-                                    socket.on("query_factbase", function (data) {
-                                        console.log("Query: " + data.query)
-                                        let query = data.query;
-                                        if (query.length >= min_query_size) {
-                                            if (query.length >= min_query_size) {
-                                                //query validated. query table.
-                                                let conn = createConnection();
-                                                conn.connect(function (err) {
-                                                    if (err) throw err;
-                                                    else {
-                                                        //connection successful. query factbase.
-                                                        let sql = `
-                                                        SELECT fact_id, negotiator, gender, term1, operator, term2 
-                                                        FROM ElizaMemory inner join ElizaAcquaintance
-                                                        ON ElizaMemory.negotiator = ElizaAcquaintance.username
-                                                        WHERE term1 = ${mysql.escape(query)};
-                                                        `;
-                                                        conn.query(sql, function (err, results) {
-                                                            if (err) console.log(err)
-                                                            else {
-                                                                console.log(query, results);
-                                                                let formatted_results = [];
-
-                                                                for (result of results) {
-
-                                                                    formatted_results.push({
-                                                                        fact_id: result.fact_id,
-                                                                        term1: result.term1,
-                                                                        operator: result.operator,
-                                                                        term2: result.term2,
-                                                                        negotiator: {
-                                                                            username: result.negotiator,
-                                                                            gender: result.gender
-                                                                        }
-
-                                                                    });
-                                                                }
-                                                                console.log("EMMITTING")
-                                                                socket.emit("query_result", { success: true, results: formatted_results });
-                                                            }
-                                                        })
-                                                    }
-                                                });
-
-                                            } else socket.emit("query_result", { success: false, reason: "Query must be at most 50 characters long." });
-                                        } else socket.emit("query_result", { success: false, reason: "Query must be at least 3 characters long." });
-
-                                    });
                                 }
                             }
                             else console.log("SELECT query returned no data.");

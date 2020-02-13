@@ -11,6 +11,11 @@ const punctuationRegex = /[.,:;/!?]/g;
 
 
 class ElizaBotNew {
+    //set these to the same values in the db. and server.
+    max_term_size = 127;
+    min_term_size = 1;
+    max_operator_size = 15;
+    min_operator_size = 1;
     get readyState() {
         return this._readyState;
     }
@@ -88,7 +93,7 @@ class ElizaBotNew {
                 for (name of tempNames) {
                     eliza.names.male.push(name.trim());
                 }
-                console.log("'male' nameset complete. ")
+                console.log("'male' nameset loaded. ")
             }
         }
         xmlhttp_male.send();
@@ -101,7 +106,7 @@ class ElizaBotNew {
                 for (name of tempNames) {
                     eliza.names.female.push(name.trim());
                 }
-                console.log("'female' nameset complete.")
+                console.log("'female' nameset loaded.")
             }
         }
         xmlhttp_female.send();
@@ -114,7 +119,7 @@ class ElizaBotNew {
                 for (name of tempNames) {
                     eliza.names.unknown.push(name.trim());
                 }
-                console.log("'unknown' nameset complete.")
+                console.log("'unknown' nameset loaded.")
             }
         }
         xmlhttp_unknown.send();
@@ -175,30 +180,55 @@ class ElizaBotNew {
                         //keyword found. perform query.
                         console.log("explicit query request found: ", keyword)
                         let term = this._remove_punctuation(message.substr(pos + keyword.length)).trim();
+                        if (!this._is_valid_term(term)) {
+                            console.log(term, "is not a valid term!");
+                            break query_request;
+                        }
 
-                        //trim term.
 
                         console.log("term extracted: ", term);
-                        //query factbase.
-                        //respond immediately.
+                        //check special case - if query matches active context.
+                        if (this.active_context && this.active_context.fact && term === this.active_context.fact.term1) {
+                            //special case is true, use immediate responses.
+                            if (this.active_context.fact_new) {
+                                if (query.responses.immediate.new_fact.length > 0) {
+                                    //use Q0 - new fact responses.
+                                    callback(Array.getRandom(query.responses.immediate.new_fact));
+                                    return;
+                                }
+                            }
+                            else {
+                                if (query.responses.immediate.retreived_fact.length > 0) {
+                                    //use Q1 - retreived fact responses.
+                                    callback(Array.getRandom(query.responses.immediate.retreived_fact));
+                                    return;
+                                }
+                            }
+                        }
+                        //item is not active context or Q0/Q1 not defined - query factbase.
                         let eliza = this; //expose eliza to callback
-                        this._output(this._case(Array.getRandom(query.responses)), "bot", false, function () {
+                        //respond immediately.
+                        this._output(this._case(Array.getRandom(query.responses.waiting)), "bot", false, function () {
+
                             eliza.methods.query_factbase(term, function (results) {
                                 console.log("results of query: ", results)
-                                //set current context.
+                                //format results.
+                                results = eliza._format_query_results(results);
 
                                 if (results) {
                                     if (results.length > 0) {
                                         //select fact from list of known facts.
                                         let fact = Array.getRandom(results);
+
                                         //update context with fact from db
                                         eliza._update_active_context({
                                             noun: fact.term1,
                                             pronoun_class: eliza._estimate_pronoun_class(fact.term1),
-                                            fact
+                                            fact,
+                                            fact_new: false
                                         });
 
-                                        callback(Array.getRandom(query.responses_yes));
+                                        callback(Array.getRandom(query.responses.yes));
                                     }
                                     else {
                                         //update context with provided query as noun.
@@ -206,7 +236,7 @@ class ElizaBotNew {
                                             noun: term,
                                             pronoun_class: eliza._estimate_pronoun_class(term)
                                         });
-                                        callback(Array.getRandom(query.responses_no));
+                                        callback(Array.getRandom(query.responses.no));
                                     }
                                 }
                                 else {
@@ -214,6 +244,7 @@ class ElizaBotNew {
                                 }
                             });
                         }, this.options.wait_time.response); //query delay.
+
                         return; //stop execution after this code is run.
                     }
                 }
@@ -221,7 +252,7 @@ class ElizaBotNew {
             //PRIORITY 2 - fact extraction.
             //FACT EXTRACTION - see design documentation for more info.
             //message contains characters. search for operators in descending priority order.
-            console.log("begin fact extraction")
+
             fact_extraction:
             for (let op of this.definitions.operators) {
                 let pos = message.search(new RegExp("\\b" + op + "\\b"));
@@ -302,7 +333,7 @@ class ElizaBotNew {
 
                     //check if terms are valid
                     if (!(this._is_valid_term(term1) && this._is_valid_term(term2))) {
-                        console.log("either term1 or term2 is invalid!")
+                        console.log("either term1 or term2 is invalid. Abort fact extraction.")
                         break fact_extraction;
                     }
 
@@ -310,7 +341,10 @@ class ElizaBotNew {
                     //reaching this point means that the fact extraction is confirmed.
                     console.log("fact confirmed: " + term1 + "|" + op + "|" + term2);
 
-                    //construct fact.
+                    //construct fact. 
+
+                    //TODO transpose fact for storage !!!!! 
+
                     let fact = {
                         term1,
                         operator: op,
@@ -325,7 +359,8 @@ class ElizaBotNew {
                     this._update_active_context({
                         noun: term1,
                         pronoun_class: this._estimate_pronoun_class(term1),
-                        fact
+                        fact,
+                        fact_new: true
                     })
 
                     //callback.
@@ -333,7 +368,6 @@ class ElizaBotNew {
 
                     //send new fact to factbase.
                     if (this.methods.send_new_fact) {
-                        console.log("new fact sent to server: ", fact)
                         this.methods.send_new_fact(fact);
                     }
 
@@ -376,6 +410,13 @@ class ElizaBotNew {
             }
         }
     }
+
+    _format_query_results(results) {
+        for (let result of results) {
+            result.negotiator.gender = this._format_gender(result.negotiator.gender)
+        }
+        return results;
+    }
     _context_match(pronoun_class) {
         //returns true if the given pronoun class matches the current context pronoun class.
         //also handles unknown gender.
@@ -385,7 +426,7 @@ class ElizaBotNew {
                 if (this.active_context.pronoun_class.gender === pronoun_class.gender)
                     return true;
                 else if (this.active_context.pronoun_class.gender === "UNKNOWN") {
-                    if (pronoun_class.gender.match(/(MALE)|(FEMALE)|(UNSPECIFIED)/)) {
+                    if (pronoun_class.gender.match(/(MALE)|(FEMALE)|(GENDERLESS)/)) {
                         console.log("setting current context.gender to " + pronoun_class.gender)
                         this._update_active_context({
                             noun: this.active_context.noun,
@@ -451,7 +492,9 @@ class ElizaBotNew {
         for (let word of words) {
             //gender rule: search for gendered words.
             for (let gender_set of this.definitions.gendered_words) {
+                console.log("searching for '" + word + "' in", gender_set)
                 if (Array.binarySearchBoolean(word, gender_set.words)) {
+                    console.log(word, "found in ", gender_set)
                     pronoun_class.gender = gender_set.gender;
                 }
             }
@@ -478,13 +521,25 @@ class ElizaBotNew {
     }
     _is_valid_term(string) {
         //returns true if the given string is a valid lexical term assuming no context.
+        console.log("checking if '" + string + "' is a valid term...")
+        //must be valid length.
+        if (string.length > this.max_term_size) {
+            console.log("term is too large! " + this.max_term_size + " is the limit.");
+            return false;
+        }
+        if (string.length < this.min_term_size) {
+            console.log("term is too small! " + this.min_term_size + " is the minimum.");
+            return false;
+        }
+
+
         //blacklisted words are not valid.
         for (let word of this.definitions.term_blacklist) {
             if (string.search(new RegExp("\\b" + word + "\\b")) >= 0) return false;
         }
 
         //punctuation is not valid.
-        console.log("checking ", string)
+
         if (string.match(punctuationRegex)) {
             console.log("punctuation!");
             return false;
@@ -535,11 +590,14 @@ class ElizaBotNew {
                 if (this.options.user.username === fact.negotiator.username) {
                     //this user gave the fact.
                     line = line
-                        .replace("\\NEGOTIATOR_PRONOUN", this._get_first_pronoun({ person: "SECOND-PERSON", plurality: "SINGULAR", gender: fact.negotiator.gender }))
-                        .replace("\\NEGOTIATOR", fact.negotiator.username)
+                        .replace("\\NEGOTIATOR_PRONOUN", this._get_first_pronoun({ person: "SECOND-PERSON", plurality: "SINGULAR", gender: undefined }))
+                        .replace("\\NEGOTIATOR", this._get_first_pronoun({ person: "SECOND-PERSON", plurality: "SINGULAR", gender: undefined }))
                 }
                 else {
                     //another user gave the fact
+                    line = line
+                        .replace("\\NEGOTIATOR_PRONOUN", this._get_first_pronoun({ person: "THIRD-PERSON", plurality: "SINGULAR", gender: this._format_gender(fact.negotiator.gender) }))
+                        .replace("\\NEGOTIATOR", fact.negotiator.username)
                 }
 
 
@@ -567,6 +625,13 @@ class ElizaBotNew {
                 return pronoun_group.pronouns[0];
             }
         }
+    }
+    _format_gender(gender) {
+        let g = gender.toLowerCase();
+        if (g === "m" || g === "male") return "MALE";
+        if (g === "f" || g === "female") return "FEMALE";
+        if (g === "" || g === "unknown") return "UNKNOWN";
+        if (g === "x" || g === "genderless") return "GENDERLESS";
     }
     _case(line) {
         line = line.toLowerCase().trim();
@@ -612,7 +677,7 @@ class ElizaBotNew {
             return null;
         }
         //capitalise first letters.
-        console.log(line)
+
         for (let c in line) {
             let char = line[c];
             if (char.match(/[a-z]/)) {
@@ -624,7 +689,9 @@ class ElizaBotNew {
             }
             new_line += char;
         }
-        return new_line;
+        line = new_line.trim();
+        console.log("after casing: \"" + line + "\"")
+        return line;
     }
     _remove_punctuation(string) {
         //returns a new string with no punctuation marks.
@@ -645,9 +712,9 @@ class ElizaBotNew {
                     break;
                 }
             }
-            output_string += " " + word + punctuation;
+            output_string += word + punctuation + " ";
         }
-        return output_string;
+        return output_string.trim();
     }
     _transpose_fact(text) {
         //replaces words with FTs. use on facts
@@ -835,23 +902,33 @@ class ElizaBotNew {
                     else {
                         //create keyword list member.
                         current_index = definitions.query.length;
-                        definitions.query.push({ keywords: [current_query_keyword], responses: [], responses_yes: [], responses_no: [] });
+                        definitions.query.push({ keywords: [current_query_keyword], responses: { waiting: [], yes: [], no: [], immediate: { new_fact: [], retreived_fact: [] } } });
                     }
                     break;
                 case 'QR':
                     //add response to query keyword responses.
                     current_query_keyword = null; //reset query keyword context.
-                    definitions.query[current_index].responses.push(text);
+                    definitions.query[current_index].responses.waiting.push(text);
                     break;
                 case 'QY':
                     //add response to query keyword responses.
                     current_query_keyword = null; //reset query keyword context.
-                    definitions.query[current_index].responses_yes.push(text);
+                    definitions.query[current_index].responses.yes.push(text);
                     break;
                 case 'QN':
                     //add response to query keyword responses.
                     current_query_keyword = null; //reset query keyword context.
-                    definitions.query[current_index].responses_no.push(text);
+                    definitions.query[current_index].responses.no.push(text);
+                    break;
+                case 'Q0':
+                    //add response to query immediate responses.
+                    current_query_keyword = null; //reset query keyword context.
+                    definitions.query[current_index].responses.immediate.new_fact.push(text);
+                    break;
+                case 'Q1':
+                    //add response to query immediate responses.
+                    current_query_keyword = null; //reset query keyword context.
+                    definitions.query[current_index].responses.immediate.retreived_fact.push(text);
                     break;
                 case 'FR':
                     //fact response
@@ -892,13 +969,12 @@ class ElizaBotNew {
     }
 
     async _output(text, agent = 'bot', nowait = false, callback = function () { }, callback_delay = 0) {
-        console.log("outputting ", text)
+        console.log("outputting \"" + text + "\"")
         if (agent === 'bot' && !nowait) {
             await sleep(this.options.wait_time.response);
         }
         if (text.length > 0 && ((agent === 'bot' && this.options.wait_time.bot > 0) || (agent === 'user' && this.options.wait_time.user > 0))) {
             this.message = "";
-            console.log(text)
             this.log.push({ agent, text });
             for (let char of text) {
                 this._add_char(char, agent)

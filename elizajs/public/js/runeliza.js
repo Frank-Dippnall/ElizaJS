@@ -172,19 +172,19 @@ document.addEventListener("DOMContentLoaded", function () {
                             socket.emit("query_factbase", { query });
                             socket.off("query_result"); //destroy old query_result listener.
                             socket.on("query_result", function (response) {
-                                //format results
-                                let formatted_results = [];
-                                for (result of response.results) {
-                                    let gender = result.negotiator.gender;
-                                    switch (gender.toLowerCase()) {
-                                        case "m": gender = "MALE"; break;
-                                        case "f": gender = "FEMALE"; break;
-                                        case "": gender = "UNSPECIFIED"; break;
+                                if (response.success) {
+                                    console.log("query response: ", response)
+                                    //format results
+                                    let formatted_results = [];
+                                    for (result of response.results) {
+                                        formatted_results.push(result);
                                     }
-                                    result.negotiator.gender = gender;
-                                    formatted_results.push(result);
+                                    callback(formatted_results)
                                 }
-                                callback(formatted_results)
+                                else {
+                                    callback([]);
+                                }
+
                             });
                         },
                         send_new_fact: function (fact) {
