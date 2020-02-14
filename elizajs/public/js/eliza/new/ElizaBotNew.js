@@ -758,7 +758,7 @@ class ElizaBotNew {
                             }
                             else {
                                 //possessive. replace with [negotiator]'s
-                                word = this._possessive(negotiator.username);
+                                word = eliza._possessive(negotiator.username);
                             }
                             break;
                         }
