@@ -121,6 +121,7 @@ TF AM NOT
 ;
 ; format user message
 ;
+
 FT i am
 FF im
 FF i'm
@@ -222,6 +223,7 @@ OP will not be
 
 
 OP is
+OP am
 OP are
 OP was
 OP were
@@ -265,6 +267,13 @@ OP sounds
 
 ; PERSONAL PRONOUNS
 
+;format:
+; nominative
+; objective
+; objective-self
+; possessive
+; possessive2 (optional)
+
 PC first-person singular ; current user
 PR i
 PR me
@@ -274,30 +283,21 @@ PR mine
 
 PC second-person singular ; referring to Eliza
 PR you
+PR you
+PR yourself
 PR your
 PR yours
-PR yourself
-
 
 PC third-person singular genderless
 PR it
-PR its
+PR it
 PR itself
-PR they
-PR them
+PR its
 
 PC third-person plural genderless
 PR they
 PR them
 PR those
-
-
-;gendered pronouns, format:
-; nominative
-; objective
-; objective-self
-; possessive
-; possessive2 (optional)
 
 PC third-person singular unknown
 PR they
@@ -318,9 +318,9 @@ PR her
 PR hers
 PR herself
 
-; DEMONSTRATIVE PRONOUNS
+; DEMONSTRATIVE PRONOUNS  *not used currently
 
-PC demonstrative ;not used currently
+PC demonstrative
 PR this
 PR that
 

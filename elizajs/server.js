@@ -44,6 +44,9 @@ function attemptSetDBPass(new_db_pass) {
         conn.end();
     });
 }
+function validUsername(username) {
+    return username.match(usernameRegex) && username.toLowerCase() !== "eliza";
+}
 
 app.use(express.static("public"));
 app.get("/set_db_pass", function (req, res) {
@@ -101,7 +104,7 @@ function validateFact(fact) {
                     if (fact.operator.length >= min_operator_size && fact.operator.length <= max_operator_size) {
                         if (fact.term2.length >= min_term_size && fact.term2.length <= max_term_size) {
                             if (fact.negotiator.username) {
-                                if (fact.negotiator.username.match(usernameRegex)) {
+                                if (validUsername(fact.negotiator.username)) {
                                     //valid fact.
                                     return true;
                                 }
@@ -241,7 +244,7 @@ io.on("connection", function (socket) {
                                         //validate fact.
                                         if (validateFact(data.fact)) {
                                             let fact = data.fact;
-                                            console.log("inserting new fact into the database.\n", data.fact)
+
 
                                             let conn = createConnection();
                                             conn.connect(function (err) {
@@ -256,9 +259,9 @@ io.on("connection", function (socket) {
                                                 ${mysql.escape(fact.term2)}
                                                );`
                                                     conn.query(sql, function (err) {
-                                                        if (err) throw sql + err;
+                                                        if (err) console.log(err.message)
                                                         else {
-                                                            console.log("ElizaMemory entry added for '" + fact.term1 + " " + fact.operator + " " + fact.term2 + "'");
+                                                            console.log("ElizaMemory entry added for '" + fact.term1 + " " + fact.operator + " " + fact.term2 + "' by user '" + fact.negotiator.username + "'.");
                                                         }
                                                     });
                                                 }
