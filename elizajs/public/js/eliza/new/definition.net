@@ -286,22 +286,31 @@ PR itself
 PR they
 PR them
 
-PC third-person singular unknown
-PR they
-PR them
-PR their
-
 PC third-person plural genderless
 PR they
 PR them
 PR those
 
 
+;gendered pronouns, format:
+; nominative
+; objective
+; objective-self
+; possessive
+; possessive2 (optional)
+
+PC third-person singular unknown
+PR they
+PR them
+PR themself
+PR their
+PR theirs
+
 PC third-person singular male
 PR he
 PR him
-PR his
 PR himself
+PR his
 
 PC third-person singular female
 PR she

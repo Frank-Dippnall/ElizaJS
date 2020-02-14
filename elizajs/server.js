@@ -241,7 +241,7 @@ io.on("connection", function (socket) {
                                         //validate fact.
                                         if (validateFact(data.fact)) {
                                             let fact = data.fact;
-                                            console.log("inserting new fact into the database.", data.fact)
+                                            console.log("inserting new fact into the database.\n", data.fact)
 
                                             let conn = createConnection();
                                             conn.connect(function (err) {

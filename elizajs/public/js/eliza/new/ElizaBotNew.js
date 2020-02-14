@@ -342,9 +342,6 @@ class ElizaBotNew {
                     console.log("fact confirmed: " + term1 + "|" + op + "|" + term2);
 
                     //construct fact. 
-
-                    //TODO transpose fact for storage !!!!! 
-
                     let fact = {
                         term1,
                         operator: op,
@@ -492,8 +489,8 @@ class ElizaBotNew {
         for (let word of words) {
             //gender rule: search for gendered words.
             for (let gender_set of this.definitions.gendered_words) {
-                console.log("searching for '" + word + "' in", gender_set)
-                if (Array.binarySearchBoolean(word, gender_set.words)) {
+                //console.log("searching for '" + word + "' in", gender_set)
+                if (gender_set.words.findIndex(w => w === word) >= 0) {
                     console.log(word, "found in ", gender_set)
                     pronoun_class.gender = gender_set.gender;
                 }
@@ -581,11 +578,12 @@ class ElizaBotNew {
 
         if (this.active_context) {
             if (this.active_context.fact) {
-                let fact = this.active_context.fact;
+                //transpose fact for output.
+                let fact = this._transpose_fact(this.active_context.fact);
                 console.log("replacing for ", fact)
                 line = line
-                    .replace("\\FACT", this._transpose_fact(fact.term1) + " " + fact.operator + " " + this._transpose_fact(fact.term2))
-                    .replace("\\PRONOUN_FACT", this._get_first_pronoun(this.active_context.pronoun_class) + " " + fact.operator + " " + this._transpose_fact(fact.term2));
+                    .replace("\\FACT", fact.term1 + " " + fact.operator + " " + fact.term2)
+                    .replace("\\PRONOUN_FACT", this._get_first_pronoun(this.active_context.pronoun_class) + " " + fact.operator + " " + fact.term2);
 
                 if (this.options.user.username === fact.negotiator.username) {
                     //this user gave the fact.
@@ -603,10 +601,12 @@ class ElizaBotNew {
 
             }
             line = line
-                .replace("\\NOUN", this._transpose(this.active_context.noun))
+                .replace("\\NOUN", this.active_context.noun)
                 .replace("\\PRONOUN", this._get_first_pronoun(this.active_context.pronoun_class))
 
         }
+        //replace [username]'s with "your"
+        line = line.replace(new RegExp("\\b" + this.options.user.username + "'s" + "\\b", "g"))
 
         //case properly.
         line = this._case(line);
@@ -697,44 +697,92 @@ class ElizaBotNew {
         //returns a new string with no punctuation marks.
         return string.replace(punctuationRegex, "");
     }
-    _transpose(text) {
-        //replaces words with FTs. use on the user message.
-        let words = text.toUpperCase().split(" "); //includes punctuation!
-        let output_string = "";
-        for (let string of words) {
-            let word = this._remove_punctuation(string)
-            let punctuation = string.substr(string.search(word) + word.length);
 
-            for (let transpose of this.definitions.transpose) {
-                if (transpose.from.findIndex(t => t === word) >= 0) {
-                    //word has a transposition. substitute.
-                    word = transpose.to;
-                    break;
-                }
-            }
-            output_string += word + punctuation + " ";
-        }
-        return output_string.trim();
-    }
-    _transpose_fact(text) {
-        //replaces words with FTs. use on facts
-        let words = text.toUpperCase().split(" "); //includes punctuation!
-        let output_string = "";
-        for (let string of words) {
-            let word = this._remove_punctuation(string)
-            let punctuation = string.substr(string.search(word) + word.length);
 
-            for (let transpose of this.definitions.transpose) {
-                if (transpose.from.findIndex(t => t === word) >= 0) {
-                    //word has a transposition. substitute.
-                    word = transpose.to;
-                    break;
-                }
-            }
-            output_string += " " + word + punctuation;
+    _tokenize_fact(fact) {
+        //'tokenises' the fact (my -> [username]'s)
+        //this makes the fact readable in any context.
+        let new_fact = {
+            term1: fact.term1,
+            operator: fact.operator,
+            term2: fact.term2,
+            negotiator: fact.negotiator
         }
-        return output_string;
+        console.log("transposing", new_fact)
+        var eliza = this; //expose this to function.
+        function tokenize(text) {
+            //replaces words in terms depending on negotiator and active context. 
+            let words = text.toUpperCase().split(" "); //includes punctuation!
+            let output_string = "";
+            for (let string of words) {
+                let word = eliza._remove_punctuation(string)
+                let punctuation = string.substr(string.search(word) + word.length);
+
+                //replace word with token, depending on context.
+
+
+                //add the punctuation back in.
+                output_string += " " + word + punctuation;
+
+            }
+            return output_string.trim();
+        }
+        //transpose terms.
+        new_fact.term1 = tokenize(new_fact.term1);
+        new_fact.term2 = tokenize(new_fact.term2);
+        return new_fact;
     }
+
+
+    _transpose_fact(fact) {
+        //deep copy. do not modify original fact.
+        let new_fact = {
+            term1: fact.term1,
+            operator: fact.operator,
+            term2: fact.term2,
+            negotiator: fact.negotiator
+        }
+        console.log("transposing", new_fact)
+        var eliza = this; //expose this to function.
+        function transpose(text) {
+            //replaces words in terms depending on negotiator and active context. 
+            let words = text.toUpperCase().split(" "); //includes punctuation!
+            let output_string = "";
+            for (let string of words) {
+                let word = eliza._remove_punctuation(string)
+                let punctuation = string.substr(string.search(word) + word.length);
+
+                //replace word with transposition, depending on context.
+                if (new_fact.negotiator.username === eliza.options.user.username) {
+                    //use old 2P transposition table if negotiator is current user
+                    for (let transpose of eliza.definitions.transpose) {
+                        if (transpose.from === word) {
+                            //replace word with transposition.
+                            console.log("replacing ", word, "with", transpose.to)
+                            word = transpose.to;
+                            break; //stop searching for transpose-or it might be transposed back!
+                        }
+                    }
+                }
+                else {
+                    //TODO
+                    console.log("new transpose!")
+                }
+
+                //add the punctuation back in.
+                output_string += " " + word + punctuation;
+
+            }
+            return output_string.trim();
+        }
+        //transpose terms.
+        new_fact.term1 = transpose(new_fact.term1);
+        new_fact.term2 = transpose(new_fact.term2);
+        return new_fact;
+    }
+
+
+
 
     _format(text) {
         //replaces words with FTs. use on the user message.
@@ -757,14 +805,16 @@ class ElizaBotNew {
     }
 
     _term_boundary_regex() {
+        //construct regex for term boundary.
         let regex = "";
         for (let boundary of this.definitions.term_boundaries) {
             regex += "" + boundary + "|"
         }
         return new RegExp("(\\b(" + regex.substr(0, regex.length - 1) + ")\\b)", "g");
     }
-    _parse_definitions(definition_text) {
 
+    _parse_definitions(definition_text) {
+        //parse definition.net file.
         //console.log("to parse: ", definition_text)
 
         var definitions = {
@@ -830,11 +880,11 @@ class ElizaBotNew {
                 case 'TT':
                     //transpose to
                     current_index = definitions.transpose.length;
-                    definitions.transpose.push({ to: text, from: [] });
+                    definitions.transpose.push({ to: text, from: undefined });
                     break;
                 case 'TF':
-                    //transpose from
-                    definitions.transpose[current_index].from.push(text);
+                    //transpose from.
+                    definitions.transpose[current_index].from = text;
                     break;
                 case 'FT':
                     //format to
@@ -962,6 +1012,7 @@ class ElizaBotNew {
         console.log("DEFINITIONS PARSED: ", definitions)
         return definitions;
     }
+    //outputting functions
     _fast_output(newmessage, agent = 'bot') {
         console.log("outputting fast", newmessage)
         this.output_html = this._construct_html(newmessage, agent);

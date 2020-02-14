@@ -22,6 +22,7 @@ Array.getRandom = function (array) {
 }
 
 Array.binarySearchBoolean = function (search_item, sorted_array) {
+    //ARRAY must be sorted!
     //recursive binary search. returns true if element inside array. 
     if (sorted_array.length < 2)
         if (search_item === sorted_array[0]) return true;
