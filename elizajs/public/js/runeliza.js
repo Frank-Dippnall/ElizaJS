@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let user_slow = document.getElementById("user_slow").checked;
 
         //client-side validation
-        if (username.match(/^[a-zA-Z0-9]{1,31}$/) && password ? password.match(/^[a-zA-Z0-9]{4,63}$/) : true) {
+        if (username.match(/^[a-zA-Z0-9]{1,31}$/) && password ? password.match(/^[a-zA-Z0-9]{3,63}$/) : true) {
 
             loading_elem.innerHTML = "Signing on to ElizaJS...";
             socket.emit("sign_on", {

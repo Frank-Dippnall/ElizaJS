@@ -8,13 +8,16 @@
 ;   ... extendable ...
 ; IF - priority message keyword
 ; RE - priority message response.
-; TT - transpose to this word (output message)
-; TF - transpose from these words (output message)
+; TT - transpose to this word (output message) [old table]
+; TF - transpose from these words (output message) [old table]
+; T0 - transpose from this word [new table]
+; T1 - transpose to this word [new table]
 ; FT - format : replace the following FFs with this in the user message.
 ; FF - format from : replace any of these with their corresponding FO in the user message
 ; NL - response for null entry
 ; NN - response for non-noun message.
 ; NF - response non-fact noun message.
+; OC - opclass
 ; OP - operator
 ; PC - pronoun class (usage: PC  [person] [plurality] [gender])
 ; PR - pronoun
@@ -43,9 +46,9 @@
 ; \noun               - the subject of the fact.
 ; \pronoun            - the pronoun for the subject of the fact.
 ; \pronoun_fact       - the fact with the noun replaced with \pronoun.
-; \fact_timestring    - a time-string for the current fact date (eg "3 days ago")
-; \fact_date          - the date of the fact_date. (dd/mm/yyyy) 
-; \fact_time          - the time of the fact_date. (hh:mm)
+; \timestring    - a time-string for the current fact date (eg "3 days ago")
+; \date          - the date of the fact_date. (dd/mm/yyyy) 
+; \exact_time    - the time of the fact_date. (hh:mm)
 ;
 ; SIGNON MESSAGE
 ;
@@ -64,8 +67,6 @@ S1it's been a while. how's things?
 TT ARE
 TF AM
 
-TT AM
-TF ARE
 
 TT WERE
 TF WAS
@@ -121,6 +122,9 @@ TF AM NOT
 ;
 ; format user message
 ;
+
+FT \username
+FF me
 
 FT i am
 FF im
@@ -205,46 +209,18 @@ NFtell me more about \noun.
 ; todo: improve list.
 ;
 
-OP dislike
-OP hate
-OP dont like
-OP don't like
 
+
+OC ADD-S
+
+OP dislike
+OP dislikes
+OP hate
+OP hates
 OP like
 OP likes
 OP love
 OP loves
-
-OP is not
-OP are not
-OP was not
-OP were not
-OP will not be
-
-
-OP is
-OP am
-OP are
-OP was
-OP were
-OP will be
-
-OP cannot be
-
-OP can be
-
-OP has
-OP had
-OP have
-;
-OP says
-OP said
-OP say
-;
-OP do
-OP did
-OP does
-OP will do
 
 ; more verbs!
 OP tastes
@@ -257,7 +233,49 @@ OP smells
 OP smell
 OP sounds
 
+;even more verbs
+OP need
+OP needs
+OP think
+OP thinks
+OP require
+OP requires
 
+
+
+
+OC NO-S
+OP do not like
+OP does not like
+
+OP is not
+OP are not
+OP was not
+OP were not
+OP will not be
+
+OP is
+OP am
+OP are
+OP was
+OP were
+
+OP will be
+OP cannot be
+OP can be
+
+OP has
+OP had
+OP have
+
+OP says
+OP said
+OP say
+
+OP do
+OP did
+OP does
+OP will do
 
 
 
@@ -315,8 +333,8 @@ PR his
 PC third-person singular female
 PR she
 PR her
-PR hers
 PR herself
+PR hers
 
 ; DEMONSTRATIVE PRONOUNS  *not used currently
 
@@ -392,8 +410,10 @@ TB that
 
 TX what
 TX disagree
-TX do not agree
 TX agree
+TX when
+TX this
+
 
 ;
 ; fact responses to display when a new fact is found.
@@ -405,17 +425,29 @@ FR i'll keep that in mind.
 ;
 ; Querying Definitions
 ;
+QK how much do you know about
+QK how much have you heard about
+QK how much have you learnt about
+QK how much have you learned about
+QR let me think...
+QY i've heard that \fact, at least that's what \negotiator says.
+QN sorry, i haven't heard of that. Can you describe \pronoun?
+
+
 QK do you know about
 QK do you know
 QK have you heard of
+QK have you learnt about
+QK have you learned about
 QR let me just look that up.
 QR let's see...
-QR hold on a minute.
+QR hold on a second.
 QY \negotiator told me about \noun. \negotiator_pronoun said that \pronoun_fact.
 QN i'm afraid not. can you tell me about \noun?
 Q0 you just told me that \fact!
 Q1 i said that \negotiator told me \fact.
 Q1 you already know that i remember \fact.
+
 
 QK look up
 QK lookup
@@ -423,6 +455,7 @@ QK query
 QR sure.
 QR scanning... beep boop...
 QY found it! \negotiator said that \fact.
+QY Regarding \noun, \negotiator said that \pronoun_fact.
 QN '\noun' is not in the database.
 
 ;
@@ -461,6 +494,12 @@ FM you don't think so?
 FM you disagree? interesting.
 FM that's wrong? in what way?
 
+FK when was this
+FK when
+FK how long ago
+FM \timestring.
+FM \negotiator_pronoun told me \timestring.
+
 FK agree
 FK yes
 FK right
@@ -469,3 +508,42 @@ FK true
 FM you think so?
 FM are you sure you agree?
 FM so you agree then.
+
+FK interesting
+FK wow
+FK ok then
+FK okay then
+FM it is interesting!
+FM i know right?
+
+FK lame
+FK sucks
+FK suck
+FK bad
+FK boring
+FM you're being quite negative.
+FM thats a shame.
+FM if you say so...
+
+FK thanks
+FK thank
+FK cheers
+FM you're welcome.
+FM my pleasure!
+FM it was nothing.
+
+FK sorry
+FM what are you sorry for?
+FM why are you apologizing to me?
+FM its okay!
+
+FK help
+FM the documentation is on GitHub! Search for "ElizaJS".
+
+FK why
+FM why not?
+
+; operator transposition table.
+; if any of these are found, do not add 's'
+T0 do not
+T1 does not

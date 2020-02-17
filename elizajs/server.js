@@ -6,7 +6,7 @@ const server = http.createServer(app);
 const io = require("socket.io")(server);
 
 const usernameRegex = /^[a-zA-Z0-9]{1,31}$/;
-const passwordRegex = /^[a-zA-Z0-9]{4,63}$/;
+const passwordRegex = /^[a-zA-Z0-9]{3,63}$/;
 const genderRegex = /^[mfx]?$/; // 'm' male, 'f' female, 'x' genderless, '' unknown
 const invalidMessageRegex = /[\[\]/"`\n\\]/; //invalid characters
 const invalidTermRegex = /\[\]\/\//; //invalid characters.
@@ -22,6 +22,9 @@ var DB_PORT = 3306 //6306
 var DB_USER = "root";
 var DB_DATABASE = "dippnalf";
 var DB_PASS = null;
+
+//maximum rows to send to client.
+var QUERY_MAXROWS = 5;
 
 function attemptSetDBPass(new_db_pass) {
     //check pass is valid.
@@ -203,10 +206,11 @@ io.on("connection", function (socket) {
                                                     else {
                                                         //connection successful. query factbase.
                                                         let sql = `
-                                                        SELECT fact_id, negotiator, gender, term1, operator, term2 
+                                                        SELECT fact_id, fact_date, negotiator, gender, term1, operator, term2, 'fact' as 'type'
                                                         FROM ElizaMemory inner join ElizaAcquaintance
                                                         ON ElizaMemory.negotiator = ElizaAcquaintance.username
-                                                        WHERE term1 LIKE ${mysql.escape(query)};
+                                                        WHERE term1 LIKE ${mysql.escape(query)} OR term2 LIKE ${mysql.escape(query)}
+                                                        LIMIT ${QUERY_MAXROWS};
                                                         `;
                                                         conn.query(sql, function (err, results) {
                                                             if (err) console.log(err)
@@ -215,18 +219,25 @@ io.on("connection", function (socket) {
                                                                 let formatted_results = [];
 
                                                                 for (result of results) {
+                                                                    if (result.type === 'fact') {
+                                                                        formatted_results.push({
+                                                                            type: 'fact',
+                                                                            fact: {
+                                                                                fact_date: result.fact_date,
+                                                                                fact_id: result.fact_id,
+                                                                                term1: result.term1,
+                                                                                operator: result.operator,
+                                                                                term2: result.term2,
+                                                                                negotiator: {
+                                                                                    username: result.negotiator,
+                                                                                    gender: result.gender
+                                                                                }
+                                                                            }
 
-                                                                    formatted_results.push({
-                                                                        fact_id: result.fact_id,
-                                                                        term1: result.term1,
-                                                                        operator: result.operator,
-                                                                        term2: result.term2,
-                                                                        negotiator: {
-                                                                            username: result.negotiator,
-                                                                            gender: result.gender
-                                                                        }
+                                                                        });
+                                                                    }
 
-                                                                    });
+
                                                                 }
                                                                 socket.emit("query_result", { success: true, results: formatted_results });
                                                                 conn.end();

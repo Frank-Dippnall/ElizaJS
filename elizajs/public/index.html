@@ -19,16 +19,16 @@
         <form id="user_form">
             <table class="form_section">
                 <tr>
-                    <th>Username</th>
+                    <th>Username<span style="color:red">*</span></th>
                     <td><input type="text" id="username" required></td>
                 </tr>
                 <tr>
-                    <th>Password (optional)</th>
-                    <td><input type="text" id="password"></td>
+                    <th>Password<span style="color:red">*</span></th>
+                    <td><input type="password" id="password" required></td>
                 </tr>
                 <tr>
 
-                    <th>Gender<span style="color:red">*</span></th>
+                    <th>Gender<span style="color:red">**</span></th>
                     <td>
                         <select id="gender">
                             <option value="m">Male: "he", "him", "his" </option>
@@ -48,10 +48,14 @@
 
             </table>
             <p style="font-size:small">
-                <span style="color:red">*</span> This field is only used when defining a new user. Existing usernames
+                <span style="color:red">*</span> This field is required.
+            </p>
+            <p style="font-size:small">
+                <span style="color:red">**</span> This field is only used when defining a new user. Existing usernames
                 will
                 use the already known gender.
             </p>
+
 
             <input type="submit" value="Start Chat Session">
 

@@ -7,7 +7,8 @@
  * New version with long-term memory.
  */
 
-const punctuationRegex = /[.,:;/!?]/g;
+const punctuationRegex = /[.,:;/"!?]/g;
+const invalidCharacterRegex = /[\[\]{}<>()\\]/
 
 
 class ElizaBotNew {
@@ -171,6 +172,7 @@ class ElizaBotNew {
             return;
         }
         else {
+
             //PRIORITY 1 - catch explicit query requests.
             query_request:
             for (let query of this.definitions.query) {
@@ -180,6 +182,62 @@ class ElizaBotNew {
                         //keyword found. perform query.
                         console.log("explicit query request found: ", keyword)
                         let term = this._remove_punctuation(message.substr(pos + keyword.length)).trim();
+
+
+                        let undefined_pronouns = []; //if this array has members after this for loop, abort.
+
+                        context_application:
+                        for (let pronoun_class of this.definitions.pronoun_classes) {
+                            for (let p_type in pronoun_class.pronouns) {
+                                let pronoun = pronoun_class.pronouns[p_type];
+                                let pronoun_pos;
+                                let pronounRegexStr = "\\b(" + pronoun + ")\\b";
+                                let pronounRegex = new RegExp(pronounRegexStr);
+
+
+                                //check for pronouns
+                                pronoun_pos = term.search(pronounRegex);
+                                if (pronoun_pos >= 0) {
+                                    //pronoun found in term.
+                                    if (this.active_context) {
+                                        //a context exists. check if class matches.
+                                        if (this._context_match(pronoun_class)) {
+                                            if (pronoun_class.person === "THIRD-PERSON") {
+                                                //referring to Active Context. replace with ACN.
+                                                console.log(typeof p_type)
+                                                if (p_type < 3) {
+                                                    //nominative/objective/etc. replace with [noun].
+                                                    term = term.replace(pronoun, this.active_context.noun);
+                                                    console.log("replacing ", pronoun, " with ", this.active_context.noun, "in query.");
+
+                                                }
+                                                else {
+                                                    //possessive. replace with [noun]'s
+                                                    term = term.replace(pronoun, this._possessive(this.active_context.noun));
+                                                    console.log("replacing ", pronoun, " with ", this._possessive(this.active_context.noun), "in query.")
+                                                    break context_application;
+                                                }
+                                            }
+                                            let temp_index = undefined_pronouns.findIndex(p => p === ("query: " + pronoun));
+                                            if (temp_index >= 0) undefined_pronouns.splice(temp_index);
+                                        }
+                                        else undefined_pronouns.push("query: " + pronoun)
+                                    }
+                                    else {
+                                        //no context exists. abort immediately
+                                        break context_application;
+                                    }
+                                }
+                            }
+                        }
+
+
+                        if (undefined_pronouns.length > 0) {
+                            console.log("undefined pronouns detected: ", undefined_pronouns);
+                            break query_request;
+                        }
+
+
                         if (!this._is_valid_term(term)) {
                             console.log(term, "is not a valid term!");
                             break query_request;
@@ -217,18 +275,22 @@ class ElizaBotNew {
 
                                 if (results) {
                                     if (results.length > 0) {
-                                        //select fact from list of known facts.
-                                        let fact = Array.getRandom(results);
-
-                                        //update context with fact from db
-                                        eliza._update_active_context({
-                                            noun: fact.term1,
-                                            pronoun_class: eliza._estimate_pronoun_class(fact.term1),
-                                            fact,
-                                            fact_new: false
-                                        });
-
-                                        callback(Array.getRandom(query.responses.yes));
+                                        //select memory from list of known memories.
+                                        let memory = Array.getRandom(results);
+                                        if (memory.type === "fact") {
+                                            let fact = memory.fact;
+                                            //update context with fact from db
+                                            eliza._update_active_context({
+                                                noun: fact.term1,
+                                                pronoun_class: eliza._estimate_pronoun_class(fact.term1, fact.negotiator),
+                                                fact,
+                                                fact_new: false
+                                            });
+                                            callback(Array.getRandom(query.responses.yes));
+                                        }
+                                        else {
+                                            throw "unsupported memory type"
+                                        }
                                     }
                                     else {
                                         //update context with provided query as noun.
@@ -254,147 +316,148 @@ class ElizaBotNew {
             //message contains characters. search for operators in descending priority order.
 
             fact_extraction:
-            for (let op of this.definitions.operators) {
-                let pos = message.search(new RegExp("\\b" + op + "\\b"));
-                if (pos >= 0) {
-                    //op found. split string.
-                    console.log("highest priority operator found:\n", op, "found at position ", pos);
+            for (let opclass of this.definitions.operator_classes) {
+                for (let op of opclass.operators) {
+                    let pos = message.search(new RegExp("\\b" + op + "\\b"));
+                    if (pos >= 0) {
+                        //op found. split string.
+                        console.log("highest priority operator found:\n", op, "found at position ", pos);
 
-                    //get lexical terms
-                    let term1 = this._trim_term1(message.substr(0, pos));
-                    let term2 = this._trim_term2(message.substr(pos + op.length));
-                    console.log("candidate fact extracted: " + term1 + "|" + op + "|" + term2);
+                        //get lexical terms
+                        let term1 = this._trim_term1(message.substr(0, pos));
+                        let term2 = this._trim_term2(message.substr(pos + op.length));
+                        console.log("candidate fact extracted: " + term1 + "|" + op + "|" + term2);
 
 
-                    //validate terms
-                    if (term1.length > 0 && term2.length > 0) {
-                        let undefined_pronouns = []; //if this array has members after this for loop, abort.
-                        for (let pronoun_class of this.definitions.pronoun_classes) {
-                            if (pronoun_class.person === "THIRD-PERSON") {
-                                //third-person pronoun. requires context.
-                                for (let p_type in pronoun_class.pronouns) {
-                                    let pronoun = pronoun_class.pronouns[p_type];
-                                    let pronoun_pos;
-                                    let pronounRegexStr = "\\b(" + pronoun + ")\\b";
-                                    let pronounRegex = new RegExp(pronounRegexStr);
-                                    //check term1 for pronouns
-                                    pronoun_pos = term1.search(pronounRegex);
-                                    if (pronoun_pos >= 0) {
-                                        //pronoun found in term.
-                                        if (this.active_context) {
-                                            //a context exists. check if class matches.
-                                            if (this._context_match(pronoun_class)) {
-                                                if (pronoun_class.person === "THIRD-PERSON") {
-                                                    //referring to Active Context. replace with ACN.
-                                                    console.log(typeof p_type)
-                                                    if (p_type < 3) {
-                                                        //nominative/objective/etc. replace with [noun].
-                                                        term1 = term1.replace(pronoun, this.active_context.noun);
-                                                        console.log("replacing ", pronoun, " with ", this.active_context.noun);
+                        //validate terms
+                        if (term1.length > 0 && term2.length > 0) {
+                            let undefined_pronouns = []; //if this array has members after this for loop, abort.
+                            for (let pronoun_class of this.definitions.pronoun_classes) {
+                                if (pronoun_class.person === "THIRD-PERSON") {
+                                    //third-person pronoun. requires context.
+                                    for (let p_type in pronoun_class.pronouns) {
+                                        let pronoun = pronoun_class.pronouns[p_type];
+                                        let pronoun_pos;
+                                        let pronounRegexStr = "\\b(" + pronoun + ")\\b";
+                                        let pronounRegex = new RegExp(pronounRegexStr);
+                                        //check term1 for pronouns
+                                        pronoun_pos = term1.search(pronounRegex);
+                                        if (pronoun_pos >= 0) {
+                                            //pronoun found in term.
+                                            if (this.active_context) {
+                                                //a context exists. check if class matches.
+                                                if (this._context_match(pronoun_class)) {
+                                                    if (pronoun_class.person === "THIRD-PERSON") {
+                                                        //referring to Active Context. replace with ACN.
+                                                        console.log(typeof p_type)
+                                                        if (p_type < 3) {
+                                                            //nominative/objective/etc. replace with [noun].
+                                                            term1 = term1.replace(pronoun, this.active_context.noun);
+                                                            console.log("replacing ", pronoun, " with ", this.active_context.noun);
 
+                                                        }
+                                                        else {
+                                                            //possessive. replace with [noun]'s
+                                                            term1 = term1.replace(pronoun, this._possessive(this.active_context.noun));
+                                                            console.log("replacing ", pronoun, " with ", this._possessive(this.active_context.noun))
+                                                            break;
+                                                        }
                                                     }
-                                                    else {
-                                                        //possessive. replace with [noun]'s
-                                                        term1 = term1.replace(pronoun, this._possessive(this.active_context.noun));
-                                                        console.log("replacing ", pronoun, " with ", this._possessive(this.active_context.noun))
-                                                        break;
-                                                    }
+
+
+
+
+
+                                                    let temp_index = undefined_pronouns.findIndex(p => p === ("term1: " + pronoun));
+                                                    if (temp_index >= 0) undefined_pronouns.splice(temp_index);
                                                 }
-
-
-
-
-
-                                                let temp_index = undefined_pronouns.findIndex(p => p === ("term1: " + pronoun));
-                                                if (temp_index >= 0) undefined_pronouns.splice(temp_index);
+                                                else undefined_pronouns.push("term1: " + pronoun)
                                             }
-                                            else undefined_pronouns.push("term1: " + pronoun)
-                                        }
-                                        else {
-                                            //no context exists. abort immediately
-                                            break fact_extraction;
-                                        }
-                                    }
-                                    //check term2 for pronouns
-                                    pronoun_pos = term2.search(pronounRegex);
-                                    if (pronoun_pos >= 0) {
-                                        //pronoun found in term.
-                                        if (this.active_context) {
-                                            //a context exists. check if class matches.
-                                            if (this._context_match(pronoun_class)) {
-                                                console.log("replacing ", pronoun, " with ", this.active_context.noun)
-                                                //pronoun class matches. replace with ACN
-                                                term2 = term2.replace(pronoun, this.active_context.noun);
-                                                let temp_index = undefined_pronouns.findIndex(p => p === ("term2: " + pronoun));
-                                                if (temp_index >= 0) undefined_pronouns.splice(temp_index);
+                                            else {
+                                                //no context exists. abort immediately
+                                                break fact_extraction;
                                             }
-                                            else undefined_pronouns.push("term2: " + pronoun)
                                         }
-                                        else {
-                                            //no context exists. abort immediately
-                                            break fact_extraction;
+                                        //check term2 for pronouns
+                                        pronoun_pos = term2.search(pronounRegex);
+                                        if (pronoun_pos >= 0) {
+                                            //pronoun found in term.
+                                            if (this.active_context) {
+                                                //a context exists. check if class matches.
+                                                if (this._context_match(pronoun_class)) {
+                                                    console.log("replacing ", pronoun, " with ", this.active_context.noun)
+                                                    //pronoun class matches. replace with ACN
+                                                    term2 = term2.replace(pronoun, this.active_context.noun);
+                                                    let temp_index = undefined_pronouns.findIndex(p => p === ("term2: " + pronoun));
+                                                    if (temp_index >= 0) undefined_pronouns.splice(temp_index);
+                                                }
+                                                else undefined_pronouns.push("term2: " + pronoun)
+                                            }
+                                            else {
+                                                //no context exists. abort immediately
+                                                break fact_extraction;
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                        //check for undefined pronouns and abort if any are found.
-                        if (undefined_pronouns.length > 0) {
-                            console.log("undefined pronouns detected: ", undefined_pronouns);
+                            //check for undefined pronouns and abort if any are found.
+                            if (undefined_pronouns.length > 0) {
+                                console.log("undefined pronouns detected: ", undefined_pronouns);
+                                break fact_extraction;
+                            }
+                        } else {
+                            console.log("fact aborted - at least one term is empty.");
                             break fact_extraction;
                         }
-                    } else {
-                        console.log("fact aborted - at least one term is empty.");
-                        break fact_extraction;
-                    }
 
 
-                    //check if terms are valid
-                    if (!(this._is_valid_term(term1) && this._is_valid_term(term2))) {
-                        console.log("either term1 or term2 is invalid. Abort fact extraction.", term1, term2)
-                        break fact_extraction;
-                    }
-
-                    //context has been applied. 
-                    //reaching this point means that the fact extraction is confirmed.
-                    console.log("fact confirmed: " + term1 + "|" + op + "|" + term2);
-
-                    //construct fact. 
-                    let fact = this._tokenize({
-                        term1,
-                        operator: op,
-                        term2,
-                        negotiator: {
-                            username: this.options.user.username,
-                            gender: this.options.user.gender
+                        //check if terms are valid
+                        if (!(this._is_valid_term(term1) && this._is_valid_term(term2))) {
+                            console.log("either term1 or term2 is invalid. Abort fact extraction.", term1, term2)
+                            break fact_extraction;
                         }
-                    });
 
-                    console.log("fact tokenized: " + fact.term1 + "|" + fact.operator + "|" + fact.term2);
+                        //context has been applied. 
+                        //reaching this point means that the fact extraction is confirmed.
+                        console.log("fact confirmed: " + term1 + "|" + op + "|" + term2);
 
-                    //update active context the SUBJECT is term1 assumedly.
-                    this._update_active_context({
-                        noun: term1,
-                        pronoun_class: this._estimate_pronoun_class(term1),
-                        fact,
-                        fact_new: true
-                    })
+                        //construct fact. 
+                        let fact = this._tokenize({
+                            fact_date: new Date(),
+                            term1,
+                            operator: op,
+                            term2,
+                            negotiator: {
+                                username: this.options.user.username,
+                                gender: this.options.user.gender
+                            }
+                        });
 
-                    //callback.
-                    callback(Array.getRandom(this.definitions.fact_responses))
+                        console.log("fact tokenized: " + fact.term1 + "|" + fact.operator + "|" + fact.term2);
 
-                    console.log(fact)
-                    //send new fact to factbase.
-                    if (this.methods.send_new_fact) {
-                        this.methods.send_new_fact(fact);
+                        //update active context the SUBJECT is term1 assumedly.
+                        this._update_active_context({
+                            noun: term1,
+                            pronoun_class: this._estimate_pronoun_class(term1),
+                            fact,
+                            fact_new: true
+                        })
+
+                        //callback.
+                        callback(Array.getRandom(this.definitions.fact_responses))
+
+                        //send new fact to factbase.
+                        if (this.methods.send_new_fact) {
+                            this.methods.send_new_fact(fact);
+                        }
+
+
+                        return;
+                        //do not continue searching since higher priority op found.
                     }
-
-
-                    return;
-                    //do not continue searching since higher priority op found.
                 }
             }
-
 
             //PRIORITY 3 - catch chatter (greeting etc). "fallback keywords"
             //no facts found. check for fallback keywords.
@@ -437,7 +500,10 @@ class ElizaBotNew {
     }
     _format_query_results(results) {
         for (let result of results) {
-            result.negotiator.gender = this._format_gender(result.negotiator.gender)
+            if (result.type === 'fact') {
+                result.fact.negotiator.gender = this._format_gender(result.fact.negotiator.gender)
+                result.fact.fact_date = new Date(result.fact.fact_date);
+            }
         }
         return results;
     }
@@ -491,7 +557,8 @@ class ElizaBotNew {
         return term2;
     }
     _update_active_context(context) {
-
+        if (context.fact) context.fact.negotiator.gender = this._format_gender(context.fact.negotiator.gender)
+        if (context.pronoun_class) context.pronoun_class.gender = this._format_gender(context.pronoun_class.gender)
         this._active_context = context;
         console.log("changed active context to ", context)
     }
@@ -500,9 +567,10 @@ class ElizaBotNew {
     }
 
 
-    _estimate_pronoun_class(term) {
+    _estimate_pronoun_class(term, negotiator = null) {
         //returns an estimated pronoun class for the lexical term.
         //TODO improve accuracy of estimation. 
+
         let pronoun_class = {
             person: "THIRD-PERSON",
             plurality: "SINGULAR",
@@ -512,29 +580,46 @@ class ElizaBotNew {
         //plurality rule: ends in 's'
         if (term[term.length - 1].toLowerCase() === 's') pronoun_class.plurality = "PLURAL";
 
+
+
         let words = term.split(" ");
+        gender_rules:
         for (let word of words) {
+            //gender rule: user username
+            if (word === this.options.user.username) {
+                pronoun_class.gender = this.options.user.gender;
+                break gender_rules;
+            }
+            //gender rule - negotiator username
+            if (negotiator) {
+                if (word === negotiator.username) {
+                    pronoun_class.gender = negotiator.gender;
+                    break gender_rules;
+                }
+            }
+
             //gender rule: search for gendered words.
             for (let gender_set of this.definitions.gendered_words) {
                 //console.log("searching for '" + word + "' in", gender_set)
                 if (gender_set.words.findIndex(w => w === word) >= 0) {
                     console.log(word, "found in ", gender_set)
                     pronoun_class.gender = gender_set.gender;
+                    break gender_rules;
                 }
             }
 
             //gender rule: search for names.
             if (Array.binarySearchBoolean(word, this.names.male)) {
                 pronoun_class.gender = "MALE";
-                break;
+                break gender_rules;
             }
             else if (Array.binarySearchBoolean(word, this.names.female)) {
                 pronoun_class.gender = "FEMALE";
-                break;
+                break gender_rules;
             }
             else if (Array.binarySearchBoolean(word, this.names.unknown)) {
                 pronoun_class.gender = "UNKNOWN";
-                break;
+                break gender_rules;
             }
         }
 
@@ -564,9 +649,17 @@ class ElizaBotNew {
 
         //punctuation is not valid.
 
-        if (string.match(punctuationRegex)) {
+        let char;
+
+        if (char = string.match(punctuationRegex)) {
             console.log("punctuation!");
             return false;
+        }
+
+        // invalid characters are not valid.
+
+        if (char = string.match(invalidCharacterRegex)) {
+            console.log("invalid character '" + char + "'")
         }
 
         //term boundaries are not valid.
@@ -590,14 +683,17 @@ class ElizaBotNew {
         }
 
         //operators are not valid.
-        for (let op of this.definitions.operators) {
-            let pos = string.search(new RegExp("\\b" + op + "\\b"));
-            if (pos >= 0) return false;
+        for (let opclass of this.definitions.operator_classes) {
+            for (let op of opclass.operators) {
+                let pos = string.search(new RegExp("\\b" + op + "\\b"));
+                if (pos >= 0) return false;
+            }
         }
 
         return true; //validation complete.
     }
     _run_macros(line) {
+        console.log("before macros: ", line)
         //replaces special commands with their macro value.
         line = line
             .replace("\\USERNAME", this.options.user.username)
@@ -605,37 +701,37 @@ class ElizaBotNew {
 
         if (this.active_context) {
             if (this.active_context.fact) {
-                //transpose fact for output.
+
                 //deep copy.
-                let fact = JSON.parse(JSON.stringify(this.active_context.fact))
-                //transpose operator. (if required)
-                if (fact.negotiator.username === this.options.user.username) {
-                    fact.operator = this._transpose(fact.operator);
-                    console.log("transposed operator!")
-                }
+                //transpose fact for output.
+                let fact = this._transpose_fact(JSON.parse(JSON.stringify(this.active_context.fact)));
+
                 console.log("replacing for ", fact)
+                let timestring = Date.createTimeString(fact.fact_date);
+                console.log("timestring made: ", timestring)
                 line = line
-                    .replace("\\FACT", this._transpose(fact.term1) + " " + fact.operator + " " + this._transpose(fact.term2))
-                    .replace("\\PRONOUN_FACT", this._get_first_pronoun(this.active_context.pronoun_class) + " " + fact.operator + " " + this._transpose(fact.term2));
+                    .replace("\\FACT", fact.term1 + " " + fact.operator + " " + fact.term2)
+                    .replace("\\PRONOUN_FACT", this._get_relevant_pronoun(this.active_context) + " " + fact.operator + " " + fact.term2)
+                    .replace("\\TIMESTRING", timestring)
 
                 if (this.options.user.username === fact.negotiator.username) {
                     //this user gave the fact.
                     line = line
-                        .replace("\\NEGOTIATOR_PRONOUN", this._get_first_pronoun({ person: "SECOND-PERSON", plurality: "SINGULAR", gender: undefined }))
-                        .replace("\\NEGOTIATOR", this._get_first_pronoun({ person: "SECOND-PERSON", plurality: "SINGULAR", gender: undefined }))
+                        .replace("\\NEGOTIATOR_PRONOUN", "YOU")
+                        .replace("\\NEGOTIATOR", "YOU")
                 }
                 else {
                     //another user gave the fact
                     line = line
-                        .replace("\\NEGOTIATOR_PRONOUN", this._get_first_pronoun({ person: "THIRD-PERSON", plurality: "SINGULAR", gender: this._format_gender(fact.negotiator.gender) }))
+                        .replace("\\NEGOTIATOR_PRONOUN", this._get_negotiator_pronoun(this.active_context))
                         .replace("\\NEGOTIATOR", fact.negotiator.username)
                 }
 
 
             }
             line = line
-                .replace("\\NOUN", this._transpose(this.active_context.noun))
-                .replace("\\PRONOUN", this._get_first_pronoun(this.active_context.pronoun_class))
+                .replace("\\NOUN", this._transpose_noun(this.active_context))
+                .replace("\\PRONOUN", this._get_relevant_pronoun(this.active_context))
 
         }
         //replace [username]'s with "your"
@@ -643,6 +739,11 @@ class ElizaBotNew {
         //replace [username] with "you"
         line = line.replace(new RegExp("\\b" + this.options.user.username.toUpperCase() + "\\b", "g"), "you")
 
+        if (line.search(/\\/) >= 0) {
+            //if macro commands still present, abort.
+            console.log("unhandled macro commands. Aborting.")
+            line = Array.getRandom(this.definitions.non_noun);
+        }
 
         //case properly.
         line = this._case(line);
@@ -650,16 +751,52 @@ class ElizaBotNew {
         line = line.replace(new RegExp("\\b" + "eliza" + "\\b", "g"), "Eliza")
         return line;
     }
-    _get_first_pronoun(pronoun_class) {
-        //returns the first pronoun in the pronoun class given.
+    _get_negotiator_pronoun(context) {
+        let pronoun_class = {
+            person: "THIRD-PERSON",
+            plurality: "SINGULAR",
+            gender: this._format_gender(context.fact.negotiator.gender)
+        }
         let person = pronoun_class.person;
         let plurality = pronoun_class.plurality;
         let gender = pronoun_class.gender;
         for (let pronoun_group of this.definitions.pronoun_classes) {
-            if (pronoun_group.person === person && pronoun_group.plurality === plurality && pronoun_group.gender === gender) {
+            if (pronoun_group.person === person && pronoun_group.plurality === plurality && (pronoun_group.gender === gender || pronoun_class.gender === undefined)) {
                 //this is the pronoun class. return first pronoun.
+                console.log("negotiator pronoun in ", pronoun_class, " is", pronoun_group.pronouns[0])
                 return pronoun_group.pronouns[0];
             }
+        }
+        throw "invalid pronoun class"
+    }
+
+    _get_specific_pronoun(pronoun_class, ptype) {
+        for (let pronoun_group of this.definitions.pronoun_classes) {
+            if (pronoun_group.person === pronoun_class.person && pronoun_group.plurality === pronoun_class.plurality && (pronoun_group.gender === pronoun_class.gender || pronoun_class.gender === undefined)) {
+                //this is the pronoun class. return first pronoun.
+                console.log("ptype " + ptype + " pronoun in ", pronoun_class, " is", pronoun_group.pronouns[ptype])
+                return pronoun_group.pronouns[ptype];
+            }
+        }
+    }
+    _get_relevant_pronoun(context, ptype = 0) {
+        //returns the relevant pronoun for the given context.
+
+        if (context.fact && context.noun === this.options.user.username) return "YOU";
+        else {
+            let pronoun_class = context.pronoun_class
+
+            let person = pronoun_class.person;
+            let plurality = pronoun_class.plurality;
+            let gender = pronoun_class.gender;
+            for (let pronoun_group of this.definitions.pronoun_classes) {
+                if (pronoun_group.person === person && pronoun_group.plurality === plurality && (pronoun_group.gender === gender || pronoun_class.gender === undefined)) {
+                    //this is the pronoun class. return first pronoun.
+                    console.log("selected pronoun in ", pronoun_class, " is", pronoun_group.pronouns[ptype])
+                    return pronoun_group.pronouns[ptype];
+                }
+            }
+            throw "invalid pronoun class"
         }
     }
     _format_gender(gender) {
@@ -676,14 +813,26 @@ class ElizaBotNew {
         //capitalise names and special words.
         let words = line.toLowerCase().split(" "); //includes punctuation!
         for (let string of words) {
-            let word = this._remove_punctuation(string)
-            let punctuation = string.substr(string.search(word) + word.length);
 
+            let word = this._remove_punctuation(string);
+            //save punctuation for later.
+            let punc_post = string.substr(string.search(word) + word.length);
+            let punc_pre = string.substr(0, string.search(word));
+            let suffix = "";
+            //handle possessives.
+            if (word.substr(word.length - 2) === "'s") {
+                word = word.substr(0, word.length - 2);
+                suffix = "'s";
+            }
             //case word
             //capitalise special words.
             if (word === "i") word = "I"
             else if (word === "i'm") word = "I'm"
             else if (word === "i'll") word = "I'll"
+            //brands & names
+            else if (word === "github") word = "GitHub";
+            else if (word === "elizajs") word = "ElizaJS";
+
 
             else if (
                 Array.binarySearchBoolean(word.toUpperCase(), this.names.male)
@@ -701,7 +850,7 @@ class ElizaBotNew {
                 }
                 word = new_word;
             }
-            new_line += " " + word + punctuation;
+            new_line += " " + punc_pre + word + suffix + punc_post;
         }
         line = new_line;
         new_line = "";
@@ -771,16 +920,12 @@ class ElizaBotNew {
             }
             return output_string.trim();
         }
-        function repair(operator) {
-            //replaces the operator with a grammatically valid operator given no context.
-            return operator
-                .replace("AM", "IS")
-        }
 
         //return deep copy with tokenization and repair
         return {
+            fact_date: fact.fact_date,
             term1: tokenize(fact.term1),
-            operator: repair(fact.operator),
+            operator: fact.operator,
             term2: tokenize(fact.term2),
             negotiator: {
                 username: fact.negotiator.username,
@@ -788,8 +933,80 @@ class ElizaBotNew {
             }
         }
     }
+    _transpose_fact(fact) {
+        if (fact.negotiator.username === this.options.user.username) {
+            return {
+                fact_date: fact.fact_date,
+                term1: this._transpose_old(fact.term1),
+                operator: this._transpose_old(fact.operator),
+                term2: this._transpose_old(fact.term2),
+                negotiator: fact.negotiator
+            };
+        }
+        else {
+            return {
+                fact_date: fact.fact_date,
+                term1: this._transpose_new(fact.negotiator, fact.term1),
+                operator: this._transpose_new(fact.negotiator, fact.operator, "operator"),
+                term2: this._transpose_new(fact.negotiator, fact.term2),
+                negotiator: fact.negotiator
+            };
+        }
+    }
 
-    _transpose(string) {
+    _transpose_noun(context) {
+        let noun = context.noun;
+        if (context.fact) {
+            if (context.fact.negotiator.username === noun) {
+                if (noun === this.options.user.username) {
+                    return this._get_specific_pronoun({ person: "SECOND-PERSON", plurality: "SINGULAR", gender: undefined }, 2) //objective-self
+                }
+                else {
+                    return this._get_specific_pronoun({ person: "THIRD-PERSON", plurality: "SINGULAR", gender: context.fact.negotiator.gender }, 2) //objective-self
+                }
+
+            }
+        }
+        return this._transpose_old(context.noun);
+    }
+
+    _transpose_new(negotiator, string, type = "term") {
+        let new_string = string;
+        switch (type) {
+            case "term":
+                for (let pronoun_class of this.definitions.pronoun_classes) {
+
+                }
+                break;
+            case "operator":
+                let op = string;
+
+                for (let opclass of this.definitions.operator_classes) {
+                    for (let operator of opclass.operators) {
+                        if (op === operator) {
+                            if (negotiator.username === this.options.user.username) {
+                                //referring to current user. do NOT add 's'
+                                return op;
+                            }
+                            else if (opclass.name === "ADD-S") {
+                                //referring to third person. add 's'
+                                return op[op.length - 1] === 's' ? op : op + 's';
+                            }
+                            else {
+                                return op;
+                            }
+                        }
+                    }
+                }
+                console.log("unrecognised ooperator!")
+                return op;
+        }
+        return new_string;
+
+    }
+
+    _transpose_old(string) {
+        //use old 2P transposition table if negotiator is current user
         let context = this.active_context;
         //replaces words in terms depending on negotiator and active context. 
         let words = string.toUpperCase().split(" "); //includes punctuation!
@@ -797,36 +1014,21 @@ class ElizaBotNew {
         for (let string of words) {
             let word = this._remove_punctuation(string)
             let punctuation = string.substr(string.search(word) + word.length);
-
             //replace word with transposition, depending on context.
-            if (!context.fact || context.fact.negotiator.username === this.options.user.username) {
-                //use old 2P transposition table if negotiator is current user
-                //also use if no fact is in context.
-                for (let transpose of this.definitions.transpose) {
-                    if (transpose.from === word) {
-                        //replace word with transposition.
-                        console.log("replacing ", word, "with", transpose.to, "from old transposition table.")
-                        word = transpose.to;
-                        break; //stop searching for transpose-or it might be transposed back!
-                    }
+            //also use if no fact is in context.
+            for (let transpose of this.definitions.transpose) {
+                if (transpose.from === word) {
+                    //replace word with transposition.
+                    console.log("replacing ", word, "with", transpose.to, "from old transposition table.");
+                    word = transpose.to;
+                    break; //stop searching for transpose-or it might be transposed back!
                 }
             }
-            else {
-                //transpose using pronoun transformation.
-                for (let pronoun_class of this.definitions.pronoun_classes) {
-
-                }
-            }
-
             //add the punctuation back in.
             output_string += " " + word + punctuation;
-
         }
         return output_string.trim();
     }
-
-
-
 
     _format(text) {
         //replaces words with FTs. use on the user message.
@@ -845,7 +1047,7 @@ class ElizaBotNew {
             }
             output_string += " " + word + punctuation;
         }
-        return output_string.trim();
+        return output_string.replace("\\USERNAME", this.options.user.username).trim();
     }
 
     _term_boundary_regex() {
@@ -868,11 +1070,12 @@ class ElizaBotNew {
             },
             priority: [],
             transpose: [],
+            new_transpose: [],
             format: [],
             null_entry: [],
             non_noun: [],
             non_fact: [],
-            operators: [],
+            operator_classes: [],
             fact_responses: [],
             term_boundaries: [],
             term_blacklist: [],
@@ -930,6 +1133,15 @@ class ElizaBotNew {
                     //transpose from.
                     definitions.transpose[current_index].from = text;
                     break;
+                case 'T0':
+                    //transpose to
+                    current_index = definitions.new_transpose.length;
+                    definitions.new_transpose.push({ to: undefined, from: text });
+                    break;
+                case 'T1':
+                    //transpose from.
+                    definitions.new_transpose[current_index].to = text;
+                    break;
                 case 'FT':
                     //format to
                     current_index = definitions.format.length;
@@ -951,9 +1163,13 @@ class ElizaBotNew {
                     //non fact message.
                     definitions.non_fact.push(text);
                     break;
+                case 'OC':
+                    current_index = definitions.operator_classes.length;
+                    definitions.operator_classes.push({ name: text, operators: [] });
+                    break;
                 case 'OP':
                     //operator.
-                    definitions.operators.push(text);
+                    definitions.operator_classes[current_index].operators.push(text);
                     break;
                 case 'PC':
                     //pronoun class.
@@ -1047,9 +1263,6 @@ class ElizaBotNew {
                     //add response to fallback keyword responses.
                     current_fallback_keyword = null; //reset fallback keyword context.
                     definitions.fallback[current_index].responses.push(text);
-                    break;
-                default:
-                    current_index = null;
                     break;
             }
         }
