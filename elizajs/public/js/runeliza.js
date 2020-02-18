@@ -10,21 +10,35 @@ var socket = io(href);
 
 var currentElizaInstance = null;
 
-const FORCE_NEW = true; //for testing.
+//makes text output fast.
 const DEBUG_MODE = false;
+
 
 function flipCoin() {
     let x = Math.floor(Math.random() * Math.floor(2));
     return x < 1 ? "heads" : "tails";
 }
 
-function loadEliza(options, methods, callback, forceNew = false) {
+var blind;
+function loadEliza(options, methods, callback) {
     //select bot type randomly
-    let type = "new";
-    if (!forceNew) type = ((flipCoin() === "heads") ? "new" : "old");
+    let typeElement = document.getElementById("bot_type");
+    let type = typeElement.value;
+
+    //randomize for random type.
+    if (type === "random") {
+        blind = true;
+        type = flipCoin() === "heads" ? "eliza_new" : "eliza_old";
+    }
+    else blind = false;
+
+    let bot_type = "undefined";
+    if (type === "eliza_new") bot_type = "new";
+    else if (type === "eliza_old") bot_type = "old";
+
 
     let eliza_element = document.getElementById("bot");
-    let eliza = ElizaBot.createInstance(type, {
+    let eliza = ElizaBot.createInstance(bot_type, {
         output: document.getElementById("bot_output"),
         container: document.getElementById("bot_inner"),
         user: {
@@ -92,6 +106,8 @@ function loadEliza(options, methods, callback, forceNew = false) {
     }
     setInterval(updateUI, 10);
     callback(eliza);
+    console.log("Eliza Core \"" + eliza.bot_type + "\" loaded.");
+
 }
 
 
@@ -106,6 +122,18 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("user_slow").checked = false;
         document.getElementById("username").focus();
     }
+    let type_descriptions = {
+        "random": "A bot type will be selected randomly. Good for blind testing.",
+        "eliza_new": "The new ElizaJS core, with built in long term memory and other features.",
+        "eliza_old": "A JS remake of the original Eliza using the original definition file."
+    }
+
+    let bot_type_elem = document.getElementById("bot_type");
+    let type_description_elem = document.getElementById("type_info");
+    bot_type_elem.addEventListener("change", function () {
+        type_description_elem.innerHTML = type_descriptions[bot_type_elem.value]
+    })
+
     let eliza_elem = document.getElementById("bot");
     eliza_elem.style.display = "none";
     let results_wrapper = document.getElementById("results_wrapper");
@@ -145,11 +173,12 @@ document.addEventListener("DOMContentLoaded", function () {
                         user_slow,
                         new_user: response.new_user
                     }, {
-                        log_conversation: function (username, log, bot_type) {
+                        log_conversation: function (username, log) {
                             //REQUIRED: conversation log function. called when the user /quit
                             loading_elem.innerHTML = "Logging conversation...";
-                            console.log(username, log)
-                            socket.emit("conversation_log", { username, log, bot_type });
+                            let bot_type = currentElizaInstance.bot_type;
+                            console.log("log data sent to server:", { username, log, bot_type, blind })
+                            socket.emit("conversation_log", { username, log, bot_type, blind });
                             socket.on("log_received", function (result) {
                                 if (result.success) {
                                     loading_elem.innerHTML = "Conversation logged!";
@@ -202,7 +231,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         eliza_elem.style.display = "block";
 
                         currentElizaInstance = eliza;
-                    }, FORCE_NEW);
+                    });
                 }
                 else {
                     loading_elem.innerHTML = response.reason;

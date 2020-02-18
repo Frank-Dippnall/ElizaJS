@@ -16,6 +16,7 @@
     <body>
         <h1>Eliza JavaScript</h1>
         <h2>By Frank Dippnall</h2>
+        <br>
         <form id="user_form">
             <table class="form_section">
                 <tr>
@@ -45,8 +46,20 @@
                     <th>Slow Text (User)</th>
                     <td><input type="checkbox" id="user_slow" checked></td>
                 </tr>
+                <tr>
+                    <th>Bot Type</th>
+                    <td>
+                        <select id="bot_type">
+                            <option value="random">random</option>
+                            <option value="eliza_new">eliza_new</option>
+                            <option value="eliza_old">eliza_old</option>
+                        </select>
+                    </td>
+
+                </tr>
 
             </table>
+            <p id="type_info">A bot type will be selected randomly. Good for blind testing.</p>
             <p style="font-size:small">
                 <span style="color:red">*</span> This field is required.
             </p>

@@ -74,6 +74,7 @@ Date.createTimeString = function (date) {
     console.log(year)
 }
 
+//ElizaBot factory pattern.
 ElizaBot.createInstance = function (type, options, methods) {
     //type: 'old' or 'new'. type of bot to create. new has long-term memory.
     //options: object full of eliza options. see class for more info.

@@ -129,7 +129,6 @@ server.listen(8030, function () {
 io.on("connection", function (socket) {
     socket.on("sign_on", function (data) {
         console.log("sign on request received for username: '" + data.username + "'");
-        let valid_sign_on = false;
         //validate sign on.
         if (data.username.match(usernameRegex)) {
             if (data.password ? data.password.match(passwordRegex) : true) {
@@ -285,8 +284,9 @@ io.on("connection", function (socket) {
                                     });
                                     //enable conversation logging service.
                                     socket.on("conversation_log", function (data) {
-                                        console.log("conversation log request received. ")
+                                        console.log("conversation log request received from user " + data.username)
                                         let log_str = "";
+
                                         let conn = createConnection();
                                         //construct serial string.
                                         for (log_entry of data.log) {
@@ -304,17 +304,18 @@ io.on("connection", function (socket) {
 
 
                                         if (data.username.match(usernameRegex)) {
-                                            console.log(data.bot_type);
                                             if (["eliza_new", "eliza_old"].findIndex(x => x === data.bot_type) >= 0) {
                                                 conn.connect(function (err) {
                                                     if (err) throw err
                                                     else {
                                                         //connection successful. log request.
                                                         let d = new Date();
-                                                        let sql = `INSERT INTO ElizaLog(conversation_date, username, log) VALUES (
+                                                        let sql = `INSERT INTO ElizaLog(conversation_date, username, log, bot_type, is_blind) VALUES (
                                                 '${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}',
                                                 ${mysql.escape(data.username)},
-                                                ${mysql.escape(log_str)}
+                                                ${mysql.escape(log_str)},
+                                                ${mysql.escape(data.bot_type)},
+                                                ${mysql.escape(data.blind)}
                                             )
                                             `;
                                                         conn.query(sql, function (err) {

@@ -132,7 +132,7 @@ class ElizaBotNew {
                 await this._output("!quit", 'user');
                 await this._output("Goodbye " + this.options.user.username);
                 this.readyState = null;
-                if (this.methods.log_conversation) this.methods.log_conversation(this.options.user.username, this.log, this.bot_type);
+                if (this.methods.log_conversation) this.methods.log_conversation(this.options.user.username, this.log);
             }
             else {
 

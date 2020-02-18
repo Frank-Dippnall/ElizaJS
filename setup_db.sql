@@ -11,9 +11,26 @@ drop table if exists ElizaMemory;
 drop table if exists ElizaAcquaintance;
 
 -- create the tables.
-create table ElizaLog(conversation_id int auto_increment primary key, conversation_date datetime, username varchar(31), log text, bot_type varchar(10));
-create table ElizaResult(result_id int auto_increment primary key, conversation_id int references ElizaLog(conversation_id), result_date datetime, score int(3), notes text);
-create table ElizaAcquaintance(username varchar(31) primary key, password varchar(63), gender char(1), meeting_date datetime);
+create table ElizaLog(
+    conversation_id int auto_increment primary key, 
+    conversation_date datetime, username varchar(31), 
+    log text, 
+    bot_type varchar(10),
+    is_blind boolean
+);
+create table ElizaResult(
+    result_id int auto_increment primary key, 
+    conversation_id int references ElizaLog(conversation_id), 
+    result_date datetime, 
+    score int(3), 
+    notes text
+);
+create table ElizaAcquaintance(
+    username varchar(31) primary key, 
+    password varchar(63), 
+    gender char(1), 
+    meeting_date datetime
+);
 create table ElizaMemory (
 	fact_id int auto_increment primary key, 
 	negotiator varchar(31) references ElizaAcquaintance(username), 

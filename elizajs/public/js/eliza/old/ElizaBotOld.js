@@ -5,9 +5,20 @@
  * 
  * Old version with no long-term memory.
  */
-
 class ElizaBotOld {
+    get readyState() {
+        return this._readyState;
+    }
+    set readyState(value) {
+        //console.log("attempt to set ready state to ", value, typeof value)
+        if (typeof value === "number") {
+            this._readyState = value;
+        }
+        else this._readyState = null;
+    }
+
     constructor(options, methods) {
+
         this.options = options;
         this.bot_type = "eliza_old";
         /*
@@ -24,6 +35,8 @@ class ElizaBotOld {
         }
         */
         this._methods = methods; // use given exposed methods. 
+        this.readyState = 1;
+        this.memory = []; //initialise short term memory.
         /*
         * methods : {
             log_conversation: function(username:string, log:string[])
@@ -31,7 +44,7 @@ class ElizaBotOld {
         */
         //get definitions
         var xml_http = new XMLHttpRequest();
-        this.ready = false;
+
         this.last_message = "";
         let eliza = this;
         xml_http.open('GET', 'js/eliza/old/definition.net');
@@ -42,27 +55,36 @@ class ElizaBotOld {
                 eliza.output_html = "";
                 eliza.message = "";
                 //send signon message
-                eliza._output(Array.getRandom(eliza.definitions.sign_on), 'bot', true);
+                eliza._output(eliza._case(Array.getRandom(eliza.definitions.sign_on)), 'bot', true, function () {
+                    eliza.readyState = 2;
+                });
             }
         }
         xml_http.send();
     }
     async talk(message) {
-        if (this.ready) {
+        if (this.readyState >= 2) {
             if (message.toLowerCase() === "!quit") {
                 await this._output("!quit", 'user');
-                await this._output("Goodbye " + this.options.username);
-                if (this._methods.log_conversation) this._methods.log_conversation(this.options.username, this.log, this.bot_type);
+                await this._output("Goodbye " + this.options.user.username);
+                if (this._methods.log_conversation) this._methods.log_conversation(this.options.user.username, this.log);
             }
             else {
                 this.last_message = message;
+                this.readyState = 1;
                 await this._output(message, 'user');
 
                 //get response from eliza
                 let response = this._parse_message(message);
-                this._output(response, 'bot');
+                await this._output(this._case(response), 'bot');
+                this.readyState = 2;
             }
         } else console.log("wait until I'm ready!");
+    }
+
+    _remove_punctuation(string) {
+        //returns a new string with no punctuation marks.
+        return string.replace(punctuationRegex, "");
     }
 
     _parse_message(message) {
@@ -89,6 +111,13 @@ class ElizaBotOld {
                             let post_keyword_text = message.substr(index + keyword.length).trim();
                             //transpose text.
                             post_keyword_text = this._transpose(post_keyword_text);
+
+                            if (keyword.toUpperCase() === "MY") {
+                                //add to memory.
+                                this.memory.push(post_keyword_text);
+                            }
+
+
                             //construct response with * replaced.
                             return Array.getRandom(keyword_class.responses).replace("*", " " + post_keyword_text);
                         }
@@ -96,7 +125,18 @@ class ElizaBotOld {
                 }
             }
             //no keyword found.
-            return Array.getRandom(this.definitions.no_keyword);
+            function flipCoin() {
+                let x = Math.floor(Math.random() * Math.floor(2));
+                return x < 1 ? "heads" : "tails";
+            }
+            if (this.memory.length > 0 && flipCoin() === "tails") {
+                //get memory entry.
+                return Array.getRandom(this.definitions.my)
+                    .replace("*", Array.getRandom(this.memory))
+            }
+            else return Array.getRandom(this.definitions.no_keyword)
+
+
         }
     }
 
@@ -114,7 +154,6 @@ class ElizaBotOld {
         return output_string;
     }
     _parse_definitions(definition_text) {
-        console.log(definition_text)
         const contexts = {
             NONE: 'none',
             TRANSPOSE: 'transpose',
@@ -159,7 +198,8 @@ class ElizaBotOld {
                     definitions.null_entry.push(text);
                     break;
                 case 'M':
-                    // UPDATE REQUIRED
+                    //responses for MY *
+                    definitions.my.push(text)
                     break;
                 case 'X':
                     //no keyword found
@@ -195,14 +235,13 @@ class ElizaBotOld {
         this.output_html = this._construct_html(newmessage, agent);
         this.options.output.innerHTML = this.output_html;
     }
-    async _output(text, agent = 'bot', nowait = false) {
+    async _output(text, agent = 'bot', nowait = false, callback = function () { }) {
         if (agent === 'bot' && !nowait) {
-            this.ready = false;
             await sleep(this.options.wait_time.response);
         }
         if (text.length > 0 && ((agent === 'bot' && this.options.wait_time.bot > 0) || (agent === 'user' && this.options.wait_time.user > 0))) {
             this.message = "";
-            this.log.push(text);
+            this.log.push({ agent, text });
             for (let char of text) {
                 this._add_char(char, agent)
                 this._update_container();
@@ -211,13 +250,12 @@ class ElizaBotOld {
 
             }
             this.output_html = this._construct_html(text, agent);
-            this.ready = true;
         }
         else {
             this._fast_output(text, agent);
-            this.ready = true;
             this._update_container();
         }
+        callback();
 
     }
     _update_container() {
@@ -228,9 +266,58 @@ class ElizaBotOld {
         if (agent && agent === 'bot') return this.output_html +
             "<div class='eliza_response'><span style='color:red'>ELIZA: </span>" + message + "</div>";
         else return this.output_html +
-            "<div class='user_response'><span style='color:blue'>" + this.options.username + ": </span>" + message + "</div>";
+            "<div class='user_response'><span style='color:blue'>" + this.options.user.username + ": </span>" + message + "</div>";
     }
+    _case(line) {
+        line = line.toLowerCase().trim();
+        let new_line = "";
 
+        //capitalise names and special words.
+        let words = line.toLowerCase().split(" "); //includes punctuation!
+        for (let string of words) {
+
+            let word = this._remove_punctuation(string);
+            //save punctuation for later.
+            let punc_post = string.substr(string.search(word) + word.length);
+            let punc_pre = string.substr(0, string.search(word));
+
+            //case word
+            //capitalise special words.
+            if (word === "i") word = "I"
+            else if (word === "i'm") word = "I'm"
+            else if (word === "i'll") word = "I'll"
+            //brands & names
+            else if (word === "github") word = "GitHub";
+            else if (word === "elizajs") word = "ElizaJS";
+
+            new_line += " " + punc_pre + word + punc_post;
+        }
+        line = new_line;
+        new_line = "";
+
+        function getLastNonSpaceChar(string, position) {
+            for (let c = position - 1; c >= 0; c--) {
+                if (string[c] !== " ") return string[c];
+            }
+            return null;
+        }
+        //capitalise first letters.
+
+        for (let c in line) {
+            let char = line[c];
+            if (char.match(/[a-z]/)) {
+                //first letter of sentence is capitalised.
+                let last_char = getLastNonSpaceChar(line, c);
+                if (c == 0 || last_char === null || last_char.match(/[.!?]/)) {
+                    char = char.toUpperCase();
+                }
+            }
+            new_line += char;
+        }
+        line = new_line.trim();
+        console.log("after casing: \"" + line + "\"")
+        return line;
+    }
     _add_char(char, agent) {
         this.message += char;
         this.options.output.innerHTML = this._construct_html(this.message, agent);
