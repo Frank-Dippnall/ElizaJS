@@ -209,7 +209,7 @@ io.on("connection", function (socket) {
                                                         SELECT fact_id, fact_date, negotiator, gender, term1, operator, term2, 'fact' as 'type'
                                                         FROM ElizaMemory inner join ElizaAcquaintance
                                                         ON ElizaMemory.negotiator = ElizaAcquaintance.username
-                                                        WHERE term1 LIKE ${mysql.escape(query)} OR term2 LIKE ${mysql.escape(query)}
+                                                        WHERE term1 LIKE ${mysql.escape(query)} OR term2 LIKE ${mysql.escape("%" + query)}
                                                         LIMIT ${QUERY_MAXROWS};
                                                         `;
                                                         conn.query(sql, function (err, results) {
