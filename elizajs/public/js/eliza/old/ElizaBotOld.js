@@ -5,6 +5,7 @@
  * 
  * Old version with no long-term memory.
  */
+
 class ElizaBotOld {
     get readyState() {
         return this._readyState;
@@ -67,6 +68,7 @@ class ElizaBotOld {
             if (message.toLowerCase() === "!quit") {
                 await this._output("!quit", 'user');
                 await this._output("Goodbye " + this.options.user.username);
+                this.readyState = null;
                 if (this._methods.log_conversation) this._methods.log_conversation(this.options.user.username, this.log);
             }
             else {

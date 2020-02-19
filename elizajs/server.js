@@ -4,6 +4,8 @@ const http = require("http");
 const app = express();
 const server = http.createServer(app);
 const io = require("socket.io")(server);
+const fs = require("fs");
+
 
 const usernameRegex = /^[a-zA-Z0-9]{1,31}$/;
 const passwordRegex = /^[a-zA-Z0-9]{3,63}$/;
@@ -16,12 +18,22 @@ const max_term_size = 127;
 const min_operator_size = 1;
 const max_operator_size = 15;
 
+
+var DB = {
+    HOST: undefined,
+    PORT: undefined,
+    USER: undefined,
+    DATABASE: undefined,
+    PASS: undefined
+};
+fs.readFile("credentials.json", function (err, data) {
+    if (err) throw err;
+    DB = JSON.parse(data);
+    console.log("set DB connection details: \n", DB)
+});
+
 //changed to localhost. 
-var DB_HOST = "localhost"
-var DB_PORT = 3306 //6306
-var DB_USER = "root";
-var DB_DATABASE = "dippnalf";
-var DB_PASS = null;
+
 
 //maximum rows to send to client.
 var QUERY_MAXROWS = 5;
@@ -30,18 +42,18 @@ function attemptSetDBPass(new_db_pass) {
     //check pass is valid.
     console.log("Attempting to set DB_PASS to " + new_db_pass);
     let conn = mysql.createConnection({
-        host: DB_HOST,
-        user: DB_USER,
+        host: DB.HOST,
+        user: DB.USER,
         password: new_db_pass,
-        port: DB_PORT,
-        database: DB_DATABASE
+        port: DB.PORT,
+        database: DB.DATABASE
     });
     conn.connect(function (err) {
         if (err) {
             console.log("DB_PASS not set: " + err);
         }
         else {
-            DB_PASS = new_db_pass;
+            DB.PASS = new_db_pass;
             console.log("DB_PASS set.");
         }
         conn.end();
@@ -53,7 +65,7 @@ function validUsername(username) {
 
 app.use(express.static("public"));
 app.get("/set_db_pass", function (req, res) {
-    if (DB_PASS) {
+    if (DB.PASS) {
         res.statusCode = 400;
         res.send("DB_PASS is already set.");
     }
@@ -79,11 +91,11 @@ if (args[2]) {
 
 function createConnection() {
     return mysql.createConnection({
-        host: DB_HOST,
-        user: DB_USER,
-        password: DB_PASS,
-        port: DB_PORT,
-        database: DB_DATABASE
+        host: DB.HOST,
+        user: DB.USER,
+        password: DB.PASS,
+        port: DB.PORT,
+        database: DB.DATABASE
     });
 }
 
@@ -339,13 +351,14 @@ io.on("connection", function (socket) {
                                                                             else {
                                                                                 //connection successful. log result.
                                                                                 let d = new Date();
-                                                                                let sql = `INSERT INTO ElizaResult(conversation_id, result_date, q1, q2, q3, q4, notes) VALUES (
+                                                                                let sql = `INSERT INTO ElizaResult(conversation_id, result_date, q1, q2, q3, q4, q5, notes) VALUES (
                                                                                             ${mysql.escape(logId)},
                                                                                             '${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}',
                                                                                             ${mysql.escape(data.results.q1)},
                                                                                             ${mysql.escape(data.results.q2)},
                                                                                             ${mysql.escape(data.results.q3)},
                                                                                             ${mysql.escape(data.results.q4)},
+                                                                                            ${mysql.escape(data.results.q5)},
                                                                                             ${mysql.escape(data.results.notes)}
                                                                                         );
                                                                                         `;

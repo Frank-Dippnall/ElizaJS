@@ -7,6 +7,10 @@
 
 var ElizaBot = {};
 
+const punctuationRegex = /[.,:;/"!?]/g;
+const invalidCharacterRegex = /[\[\]{}<>()\\]/
+
+
 Date.createTimeString = function (date) {
 
     if (typeof date === 'string') date = new Date(date);

@@ -7,8 +7,6 @@
  * New version with long-term memory.
  */
 
-const punctuationRegex = /[.,:;/"!?]/g;
-const invalidCharacterRegex = /[\[\]{}<>()\\]/
 
 
 class ElizaBotNew {

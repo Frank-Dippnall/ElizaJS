@@ -26,6 +26,7 @@ create table ElizaResult(
     q2 int(1),
     q3 int(1),
     q4 int(1),
+    q5 int(1),
     notes text
 );
 create table ElizaAcquaintance(

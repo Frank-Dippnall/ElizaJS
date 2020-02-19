@@ -63,7 +63,7 @@ function loadEliza(options, methods, callback) {
                 event.preventDefault();
                 //validate message.
                 let message = input_box.value;
-                if (!message.match(/[/"`\n\\]/g)) {
+                if (!message.match(invalidCharacterRegex)) {
                     //client side validation.
                     eliza.talk(input_box.value);
                 }
@@ -277,6 +277,8 @@ document.addEventListener("DOMContentLoaded", function () {
             q2: likert(getRadioValue("q2")),
             q3: likert(getRadioValue("q3")),
             q4: likert(getRadioValue("q4")),
+            q5: likert(getRadioValue("q5")),
+
             notes: document.getElementById("notes").value
         };
 
