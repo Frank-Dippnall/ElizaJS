@@ -81,7 +81,7 @@ function createConnection() {
     return mysql.createConnection({
         host: DB_HOST,
         user: DB_USER,
-        password: DB_PASS, //TODO REMOVE
+        password: DB_PASS,
         port: DB_PORT,
         database: DB_DATABASE
     });
@@ -318,7 +318,7 @@ io.on("connection", function (socket) {
                                                 ${mysql.escape(data.blind)}
                                             )
                                             `;
-                                                        conn.query(sql, function (err) {
+                                                        conn.query(sql, function (err, result) {
                                                             if (err) {
                                                                 console.log(sql + err);
                                                                 socket.emit("log_received", { success: false, reason: "The server encountered a MySQL error: " + err });
@@ -326,6 +326,45 @@ io.on("connection", function (socket) {
                                                             else {
                                                                 console.log("successfully logged to remote MySQL database.");
                                                                 socket.emit("log_received", { success: true });
+
+                                                                //enable evaluation service
+                                                                var logId = result.insertId;
+                                                                console.log(logId);
+                                                                socket.on("user_evaluation", function (data) {
+                                                                    if (data.results.q1 > 0 && data.results.q2 > 0 && data.results.q3 > 0 && data.results.q4 > 0) {
+                                                                        let conn = createConnection();
+
+                                                                        conn.connect(function (err) {
+                                                                            if (err) throw err
+                                                                            else {
+                                                                                //connection successful. log result.
+                                                                                let d = new Date();
+                                                                                let sql = `INSERT INTO ElizaResult(conversation_id, result_date, q1, q2, q3, q4, notes) VALUES (
+                                                                                            ${mysql.escape(logId)},
+                                                                                            '${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}',
+                                                                                            ${mysql.escape(data.results.q1)},
+                                                                                            ${mysql.escape(data.results.q2)},
+                                                                                            ${mysql.escape(data.results.q3)},
+                                                                                            ${mysql.escape(data.results.q4)},
+                                                                                            ${mysql.escape(data.results.notes)}
+                                                                                        );
+                                                                                        `;
+                                                                                conn.query(sql, function (err) {
+                                                                                    if (err) {
+                                                                                        console.log(sql + err);
+                                                                                        socket.emit("evaluation_received", { success: false, reason: "The server encountered a MySQL error: " + err });
+                                                                                    }
+                                                                                    else {
+                                                                                        console.log("evaluation logged successfully to remote MySQL database.");
+                                                                                        socket.emit("evaluation_received", { success: true });
+                                                                                    }
+                                                                                });
+                                                                            }
+                                                                            conn.end();
+                                                                        });
+                                                                    }
+                                                                    else socket.emit("evaluation_received", { success: false, reason: "Please enter a result for all of the primary questions." });
+                                                                });
                                                             }
                                                         });
                                                     }
@@ -336,6 +375,7 @@ io.on("connection", function (socket) {
 
                                         } else socket.emit("log_received", { success: false, reason: "The given username failed server-side validation." });
                                     });
+
 
                                 }
                             }

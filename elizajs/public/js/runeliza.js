@@ -139,6 +139,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let results_wrapper = document.getElementById("results_wrapper");
     results_wrapper.style.display = "none";
 
+
     let user_form = document.getElementById("user_form");
     let loading_elem = document.getElementById("content_loading");
     user_form.addEventListener("submit", function (e) {
@@ -217,7 +218,6 @@ document.addEventListener("DOMContentLoaded", function () {
                             });
                         },
                         send_new_fact: function (fact) {
-                            //client-side validation TODO.
 
                             //sends the given fact to the server.
                             socket.emit("new_fact", { fact });
@@ -244,6 +244,54 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
 
+
+    });
+
+    //evaluation form
+    let results_form = document.getElementById("evaluation_form");
+    results_form.addEventListener("submit", function (e) {
+        function likert(string) {
+            switch (string.toLowerCase()) {
+                case "strong_agree": return 5;
+                case "agree": return 4;
+                case "neutral": return 3;
+                case "disagree": return 2;
+                case "strong_disagree": return 1;
+                default: return 0;
+            }
+        }
+        function getRadioValue(name) {
+            var inputs = document.getElementsByName(name);
+            for (let input of inputs) {
+                if (input.checked) {
+                    console.log("returning " + input.value)
+                    return input.value;
+                }
+            }
+            return "";
+        }
+        e.preventDefault();
+        console.log("submitting results...");
+        let results = {
+            q1: likert(getRadioValue("q1")),
+            q2: likert(getRadioValue("q2")),
+            q3: likert(getRadioValue("q3")),
+            q4: likert(getRadioValue("q4")),
+            notes: document.getElementById("notes").value
+        };
+
+        let evaluation_message = document.getElementById("evaluation_msg");
+        evaluation_message.innerHTML = "Sending results to server...";
+        socket.emit("user_evaluation", { results });
+        socket.on("evaluation_received", function (response) {
+            if (response.success) {
+                evaluation_message.innerHTML = "The results have been logged. Thanks for the feedback!";
+                results_form.style.display = "none";
+            }
+            else {
+                evaluation_message.innerHTML = "The server rejected the results data: " + response.reason;
+            }
+        })
 
     });
 

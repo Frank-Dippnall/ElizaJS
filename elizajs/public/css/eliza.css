@@ -21,3 +21,32 @@ table.form_section th{
     padding-right:15px;
     font-weight:normal;
 }
+
+.form_heavy{
+    font-size:large;
+    background-color: #f0ffff;
+    border: 1px solid black;
+    width:50%;
+    min-height:300px;
+    padding:5px;
+    margin:auto;
+}
+.question{
+    font-size: larger;
+}
+
+.form_button{
+    font-size:large;
+    background-color: #96b5ee;
+    padding:5px;
+    border:1px solid black;
+}
+#notes{
+    width:80%;
+    height:300px;
+    font-size:30px;
+    text-align:left;
+}
+#evaluation_msg{
+    font-style: italic;
+}

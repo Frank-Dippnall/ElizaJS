@@ -50,9 +50,9 @@
                     <th>Bot Type</th>
                     <td>
                         <select id="bot_type">
-                            <option value="random">random</option>
                             <option value="eliza_new">eliza_new</option>
                             <option value="eliza_old">eliza_old</option>
+                            <option value="random">random</option>
                         </select>
                     </td>
 
@@ -70,7 +70,7 @@
             </p>
 
 
-            <input type="submit" value="Start Chat Session">
+            <input class="form_button" type="submit" value="Start Chat Session">
 
         </form>
 
@@ -87,14 +87,72 @@
             <h3>Thank You!</h3>
             <p>Thanks for using ElizaJS! Your conversation has been logged and will be used for project evaluation.</p>
             <p>If you want, you can complete this evaluation form to submit your feedback.</p>
-            <form id="evaluation_form">
-                <table class="form_section">
+            <form id="evaluation_form" class="form_heavy">
+                <h1>Evaluation Form</h1>
+                <table class="form_section ">
                     <tr>
-                        <th>Score</th>
-                        <td><input type="number" max=100 min=0 id="score"></td>
+                        <p class="question">Eliza remembered the things I told her well.</p>
+                        <input type="radio" id="q1_strong_agree" name="q1" value="strong_agree">
+                        <label for="strong_agree">Strongly Agree</label>
+                        <input type="radio" id="q1_agree" name="q1" value="agree">
+                        <label for="agree">Agree</label>
+                        <input type="radio" id="q1_neutral" name="q1" value="neutral">
+                        <label for="neutral">Neutral</label>
+                        <input type="radio" id="q1_disagree" name="q1" value="disagree">
+                        <label for="disagree">Disagree</label>
+                        <input type="radio" id="q1_strong_disagree" name="q1" value="strong_disagree">
+                        <label for="strong_disagree">Strongly Disagree</label>
+                    </tr>
+                    <tr>
+                        <p class="question">Eliza remembered the things other people told her well.</p>
+                        <input type="radio" id="q2_strong_agree" name="q2" value="strong_agree">
+                        <label for="strong_agree">Strongly Agree</label>
+                        <input type="radio" id="q2_agree" name="q2" value="agree">
+                        <label for="agree">Agree</label>
+                        <input type="radio" id="q2_neutral" name="q2" value="neutral">
+                        <label for="neutral">Neutral</label>
+                        <input type="radio" id="q2_disagree" name="q2" value="disagree">
+                        <label for="disagree">Disagree</label>
+                        <input type="radio" id="q2_strong_disagree" name="q2" value="strong_disagree">
+                        <label for="strong_disagree">Strongly Disagree</label>
+                    </tr>
+                    <tr>
+                        <p class="question">Eliza understood my English in the same way humans do.</p>
+                        <input type="radio" id="q3_strong_agree" name="q3" value="strong_agree">
+                        <label for="strong_agree">Strongly Agree</label>
+                        <input type="radio" id="q3_agree" name="q3" value="agree">
+                        <label for="agree">Agree</label>
+                        <input type="radio" id="q3_neutral" name="q3" value="neutral">
+                        <label for="neutral">Neutral</label>
+                        <input type="radio" id="q3_disagree" name="q3" value="disagree">
+                        <label for="disagree">Disagree</label>
+                        <input type="radio" id="q3_strong_disagree" name="q3" value="strong_disagree">
+                        <label for="strong_disagree">Strongly Disagree</label>
+                    </tr>
+                    <tr>
+                        <p class="question">Eliza's messages were clear and understandable.</p>
+                        <input type="radio" id="q4_strong_agree" name="q4" value="strong_agree">
+                        <label for="strong_agree">Strongly Agree</label>
+                        <input type="radio" id="q4_agree" name="q4" value="agree">
+                        <label for="agree">Agree</label>
+                        <input type="radio" id="q4_neutral" name="q4" value="neutral">
+                        <label for="neutral">Neutral</label>
+                        <input type="radio" id="q4_disagree" name="q4" value="disagree">
+                        <label for="disagree">Disagree</label>
+                        <input type="radio" id="q4_strong_disagree" name="q4" value="strong_disagree">
+                        <label for="strong_disagree">Strongly Disagree</label>
+                    </tr>
+                    <tr>
+                        <p class="question">Please write any additional feedback in the text box below.</p>
+                        <textarea id="notes"></textarea>
+
                     </tr>
                 </table>
+
+                <input class="form_button" type="submit" value="Submit Evaluation">
+
             </form>
+            <p id="evaluation_msg"></p>
             <p>
                 You can refresh the page or <a href="/">click here</a> to go back to the sign-on screen. Have a nice
                 day!

@@ -22,7 +22,10 @@ create table ElizaResult(
     result_id int auto_increment primary key, 
     conversation_id int references ElizaLog(conversation_id), 
     result_date datetime, 
-    score int(3), 
+    q1 int(1),
+    q2 int(1),
+    q3 int(1),
+    q4 int(1),
     notes text
 );
 create table ElizaAcquaintance(
@@ -43,5 +46,6 @@ create table ElizaMemory (
 -- some useful queries
 select * from ElizaLog;
 select * from ElizaAcquaintance;
+select * from ElizaLog inner join ElizaResult using (conversation_id);
 select * from ElizaMemory inner join ElizaAcquaintance on ElizaMemory.negotiator = ElizaAcquaintance.username;
 

@@ -402,6 +402,8 @@ TB and
 TB or
 TB too
 TB that
+TB though
+TB tho
 
 ;
 ; lexical term blacklist
@@ -440,6 +442,7 @@ QK do you know
 QK have you heard of
 QK have you learnt about
 QK have you learned about
+QK remember
 QR let me just look that up.
 QR let's see...
 QR hold on a second.
