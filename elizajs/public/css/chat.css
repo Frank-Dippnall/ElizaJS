@@ -11,6 +11,7 @@
     border: 1px solid #d0d8dd;
     padding: 30px;
     height: 70%;
+    margin-top:0px;
 }
 
 .bot_wrapper.inner {
@@ -24,7 +25,7 @@
 .bot_wrapper .input {
     margin: auto;
     width: 100%;
-    font-size: 30px;
+    font-size: 20px;
     padding: 5px;
     font-family: inherit;
     outline: none;

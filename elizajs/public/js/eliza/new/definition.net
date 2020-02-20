@@ -209,6 +209,39 @@ NFtell me more about \noun.
 ; todo: improve list.
 ;
 
+OC NO-S
+OP do not like
+OP does not like
+
+OP is not
+OP are not
+OP was not
+OP were not
+OP will not be
+
+OP is
+OP am
+OP are
+OP was
+OP were
+
+OP will be
+OP cannot be
+OP can be
+
+OP has
+OP had
+OP have
+
+OP says
+OP said
+OP say
+
+OP do
+OP did
+OP does
+OP will do
+
 
 
 OC ADD-S
@@ -243,39 +276,6 @@ OP requires
 
 
 
-
-OC NO-S
-OP do not like
-OP does not like
-
-OP is not
-OP are not
-OP was not
-OP were not
-OP will not be
-
-OP is
-OP am
-OP are
-OP was
-OP were
-
-OP will be
-OP cannot be
-OP can be
-
-OP has
-OP had
-OP have
-
-OP says
-OP said
-OP say
-
-OP do
-OP did
-OP does
-OP will do
 
 
 
@@ -404,6 +404,7 @@ TB too
 TB that
 TB though
 TB tho
+TB then
 
 ;
 ; lexical term blacklist
@@ -415,6 +416,8 @@ TX disagree
 TX agree
 TX when
 TX this
+TX okay
+TX ok
 
 
 ;

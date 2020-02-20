@@ -457,6 +457,8 @@ class ElizaBotNew {
                 }
             }
 
+            //messages that make it past this point are "context-destroying" (see report for details)
+
             //PRIORITY 3 - catch chatter (greeting etc). "fallback keywords"
             //no facts found. check for fallback keywords.
             for (let fallback of this.definitions.fallback) {
@@ -465,11 +467,14 @@ class ElizaBotNew {
                     if (pos >= 0) {
                         //keyword found. respond.
                         callback(Array.getRandom(fallback.responses));
+                        //destroy context.
+                        this._update_active_context(null);
                         return;
                     }
                 }
 
             }
+            
             //PRIORITY 4 - detect single term statements.
             //check if message is a valid term.
             if (this._is_valid_term(message)) {
@@ -485,6 +490,8 @@ class ElizaBotNew {
             else {
                 //message is neither fact nor noun. wut
                 callback(Array.getRandom(this.definitions.non_noun));
+                //destroy context
+                this._update_active_context(null);
                 return;
             }
         }
@@ -555,8 +562,10 @@ class ElizaBotNew {
         return term2;
     }
     _update_active_context(context) {
-        if (context.fact) context.fact.negotiator.gender = this._format_gender(context.fact.negotiator.gender)
-        if (context.pronoun_class) context.pronoun_class.gender = this._format_gender(context.pronoun_class.gender)
+        if (context){
+            if (context.fact) context.fact.negotiator.gender = this._format_gender(context.fact.negotiator.gender)
+            if (context.pronoun_class) context.pronoun_class.gender = this._format_gender(context.pronoun_class.gender)
+        }
         this._active_context = context;
         console.log("changed active context to ", context)
     }

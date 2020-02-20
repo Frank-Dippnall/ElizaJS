@@ -27,9 +27,15 @@ var DB = {
     PASS: undefined
 };
 fs.readFile("credentials.json", function (err, data) {
-    if (err) throw err;
-    DB = JSON.parse(data);
-    console.log("set DB connection details: \n", DB)
+    if (err) {
+        console.log("credentials.json is required for this script. Refer to the documentation for help.");
+        process.exit();
+    }
+
+    else{ 
+        DB = JSON.parse(data);
+        console.log("using DB connection information in 'credentials.json', with DB_HOST '"+DB.HOST+"'");
+    }
 });
 
 //changed to localhost. 
@@ -226,7 +232,6 @@ io.on("connection", function (socket) {
                                                         conn.query(sql, function (err, results) {
                                                             if (err) console.log(err)
                                                             else {
-                                                                console.log(query, results);
                                                                 let formatted_results = [];
 
                                                                 for (result of results) {
@@ -341,7 +346,6 @@ io.on("connection", function (socket) {
 
                                                                 //enable evaluation service
                                                                 var logId = result.insertId;
-                                                                console.log(logId);
                                                                 socket.on("user_evaluation", function (data) {
                                                                     if (data.results.q1 > 0 && data.results.q2 > 0 && data.results.q3 > 0 && data.results.q4 > 0) {
                                                                         let conn = createConnection();
