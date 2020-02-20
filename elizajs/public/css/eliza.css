@@ -51,3 +51,37 @@ table.form_section th{
 #evaluation_msg{
     font-style: italic;
 }
+
+button#show_help{
+    position: fixed;
+    top:5px;
+    left:5px;
+    background-color: aqua;
+    border:1px solid black;
+    outline:none;
+}
+button#hide_help{
+    position: relative;
+    float:right;
+    top:5px;
+    right:5px;
+    outline:none;
+    background-color: #ff4040;
+    border:1px solid black;
+}
+div#help_container{
+    background-color: azure;
+    border:1px solid black;
+    position:fixed;
+    top:0px;
+    width:70%;
+    height:85%;
+    margin:2% 15% 13% 15%;
+    text-align: left;
+    padding:5px;
+    font-size:18px;
+}
+div#help_container h4{
+    margin-top:5px;
+    margin-bottom:10px;
+}

@@ -304,7 +304,6 @@ class ElizaBotNew {
                                 }
                             });
                         }, this.options.wait_time.response); //query delay.
-
                         return; //stop execution after this code is run.
                     }
                 }
@@ -498,6 +497,7 @@ class ElizaBotNew {
     }
 
     _possessive(word) {
+
         word = word.toUpperCase();
         //adds 's to the word. if word ends in 's' just adds '
         if (word[word.length - 1] === 'S') return word + "'"
@@ -742,7 +742,7 @@ class ElizaBotNew {
 
         }
         //replace [username]'s with "your"
-        line = line.replace(new RegExp("\\b" + this.options.user.username.toUpperCase() + "'s" + "\\b", "g"), "your")
+        line = line.replace(new RegExp("\\b" + this.options.user.username.toUpperCase() + "'S" + "\\b", "g"), "your")
         //replace [username] with "you"
         line = line.replace(new RegExp("\\b" + this.options.user.username.toUpperCase() + "\\b", "g"), "you")
 
