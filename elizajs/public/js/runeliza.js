@@ -297,6 +297,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     });
 
+    let help_wrapper = document.getElementById("help_container");
+    //help stuff
+    document.getElementById("show_help").addEventListener("click", function () {
+        help_wrapper.style.visibility = "visible";
+    });
+    document.getElementById("hide_help").addEventListener("click", function () {
+        help_wrapper.style.visibility = "hidden";
+    });
+
 }, false);
 
 

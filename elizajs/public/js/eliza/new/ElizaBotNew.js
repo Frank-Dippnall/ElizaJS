@@ -207,7 +207,7 @@ class ElizaBotNew {
                                                     //nominative/objective/etc. replace with [noun].
                                                     term = term.replace(pronoun, this.active_context.noun);
                                                     console.log("replacing ", pronoun, " with ", this.active_context.noun, "in query.");
-
+                                                    break context_application;
                                                 }
                                                 else {
                                                     //possessive. replace with [noun]'s
@@ -220,6 +220,21 @@ class ElizaBotNew {
                                             if (temp_index >= 0) undefined_pronouns.splice(temp_index);
                                         }
                                         else undefined_pronouns.push("query: " + pronoun)
+                                    }
+                                    else if (pronoun_class.person === "FIRST-PERSON") {
+                                        //referring to user.
+                                        if (p_type < 3) {
+                                            //nominative/objective/etc. replace with [noun].
+                                            term = term.replace(pronoun, this.options.user.username);
+                                            console.log("replacing ", pronoun, " with ", this.options.user.username, "in query.");
+                                            break context_application;
+                                        }
+                                        else {
+                                            //possessive. replace with [noun]'s
+                                            term = term.replace(pronoun, this._possessive(this.options.user.username));
+                                            console.log("replacing ", pronoun, " with ", this._possessive(this.options.user.username), "in query.")
+                                            break context_application;
+                                        }
                                     }
                                     else {
                                         //no context exists. abort immediately
@@ -473,7 +488,7 @@ class ElizaBotNew {
                 }
 
             }
-            
+
             //PRIORITY 4 - detect single term statements.
             //check if message is a valid term.
             if (this._is_valid_term(message)) {
@@ -562,7 +577,7 @@ class ElizaBotNew {
         return term2;
     }
     _update_active_context(context) {
-        if (context){
+        if (context) {
             if (context.fact) context.fact.negotiator.gender = this._format_gender(context.fact.negotiator.gender)
             if (context.pronoun_class) context.pronoun_class.gender = this._format_gender(context.pronoun_class.gender)
         }
