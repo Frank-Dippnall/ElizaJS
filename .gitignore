@@ -105,7 +105,7 @@ dist
 
 #docs latex files.
 docs/report/*
-!docs/report/project_report.pdf
+
 
 #credentials file
 credentials.json
